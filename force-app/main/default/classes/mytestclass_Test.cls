@@ -1,5 +1,5 @@
-public with sharing class mytestclass_Test {
-    public mytestclass_Test() {
-
-    }
+public class mytestclass_Test{
+    public static void execute() {
+        system.debug('this is execute');
+    } 
 }

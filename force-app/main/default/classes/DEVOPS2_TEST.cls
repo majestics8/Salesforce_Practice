@@ -17,6 +17,12 @@ class DEVOPS2_TEST {
     
         
     }
+    @isTest
+    public static void test2(){
+        List<Opportunity> opp=new List<Opportunity>();
+        opp.add(new Opportunity(Name='Opp1', StageName='Closed Won', Amount=1000000, CloseDate=Date.today()));
+        insert opp;
+    }
     
     
 }
