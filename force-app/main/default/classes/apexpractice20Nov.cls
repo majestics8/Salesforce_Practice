@@ -1,7 +1,7 @@
 public class apexpractice20Nov {
     public static void checkforsubstype(List<Account> acclist){
         if(acclist.isEmpty()) return;
-        
+        //this is good test
         List<Subscription__c> subs=new List<Subscription__c>();
         for(Account acc:acclist){
             if(acc.Type_of_Subscription__c=='Annual'){
