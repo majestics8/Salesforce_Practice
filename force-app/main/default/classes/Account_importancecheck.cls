@@ -9,7 +9,7 @@ public class Account_importancecheck {
         }
         else{
             acc.Rating='Cold';
-            // dont know what to do
+            // dont know what to do ha
         }
         }
     }
