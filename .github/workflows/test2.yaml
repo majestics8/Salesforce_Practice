@@ -2,8 +2,8 @@ name: Deployment and validation to production
 on:
   push:
     branches:
-      - main
       - feature
+      - main
   pull_request:
     branches:
       - main
