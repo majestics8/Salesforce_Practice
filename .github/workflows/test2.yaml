@@ -41,10 +41,12 @@ jobs:
 
       - name: 'Deploy to environment with running all local tests'
         run: |
-         sf project deploy start \
-         --source-dir changed-sources/force-app \
-         --test-level RunLocalTests \
-         --dry-run
+          echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
+          sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
+          sf project deploy start \
+            --source-dir changed-sources/force-app \
+            --test-level RunLocalTests \
+            --dry-run
 
   # runs when pull request is resolved and merged 
   Deployment:
