@@ -304,14 +304,14 @@ jobs:
           - name: 'Create delta packages'
             run: | 
                 mkdir changed-sources
-                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
+                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/ --verbose
                 echo "[INFO] Diff generated"
                 
           - name: 'validate to environment with running all local tests'
             run: | 
                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests
+                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
+                sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --verbose
 # Deployment job  
   Deploy-to-uat:
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -336,11 +336,11 @@ jobs:
           - name: 'Create delta packages'
             run: | 
                 mkdir changed-sources
-                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
+                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/ --verbose
                 echo "[INFO] Diff generated"
                 
           - name: 'Deploy to environment with running all local tests'
             run: | 
                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
+                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
+                sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --verbose
