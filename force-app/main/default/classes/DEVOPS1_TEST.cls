@@ -20,7 +20,7 @@ public class DEVOPS1_TEST {
         List<Account> accs = [SELECT Id, Name, AnnualRevenue, Rating FROM Account];
        // List<Contact> contacts = [SELECT Id, AccountId FROM Contact];
        //changes are reflected 
-       //double check
+       //double check 2
 
         AccountHandler123.updateAccountRating(accs);
 		DEVOPS_APEX_CLASS1.setpremium(accs);
