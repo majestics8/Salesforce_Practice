@@ -268,8 +268,9 @@
 name: Deploy to sffnoobs environment on push to main
 
 on:
-  push:
-    branches: [ feature ]
+  pull_request:
+    branches: 
+      - main
     paths:
       - 'force-app/**'
 
