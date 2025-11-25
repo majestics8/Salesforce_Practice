@@ -6,18 +6,11 @@
     </botMlDomain>
     <botSource>None</botSource>
     <contextVariables>
-        <dataType>Text</dataType>
-        <description>This variable may also be referred to as LiveChatTranscript ChatKey</description>
-        <developerName>ChatKey</developerName>
-        <includeInPrompt>false</includeInPrompt>
-        <label>Chat Key</label>
-    </contextVariables>
-    <contextVariables>
         <dataType>Id</dataType>
-        <description>This variable may also be referred to as MessagingEndUser ContactId</description>
-        <developerName>ContactId</developerName>
-        <includeInPrompt>false</includeInPrompt>
-        <label>Contact Id</label>
+        <description>This variable may also be referred to as VoiceCall Id</description>
+        <developerName>VoiceCallId</developerName>
+        <includeInPrompt>true</includeInPrompt>
+        <label>Voice Call Id</label>
     </contextVariables>
     <contextVariables>
         <dataType>Id</dataType>
@@ -25,18 +18,6 @@
         <developerName>EndUserId</developerName>
         <includeInPrompt>true</includeInPrompt>
         <label>End User Id</label>
-    </contextVariables>
-    <contextVariables>
-        <dataType>Text</dataType>
-        <developerName>input</developerName>
-        <includeInPrompt>false</includeInPrompt>
-        <label>input</label>
-    </contextVariables>
-    <contextVariables>
-        <dataType>Text</dataType>
-        <developerName>Input_from_user_quest</developerName>
-        <includeInPrompt>false</includeInPrompt>
-        <label>Input from user quest</label>
     </contextVariables>
     <contextVariables>
         <dataType>Id</dataType>
@@ -47,10 +28,29 @@
     </contextVariables>
     <contextVariables>
         <dataType>Id</dataType>
-        <description>This variable may also be referred to as VoiceCall Id</description>
-        <developerName>VoiceCallId</developerName>
-        <includeInPrompt>true</includeInPrompt>
-        <label>Voice Call Id</label>
+        <description>This variable may also be referred to as MessagingEndUser ContactId</description>
+        <developerName>ContactId</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>Contact Id</label>
+    </contextVariables>
+    <contextVariables>
+        <dataType>Text</dataType>
+        <description>This variable may also be referred to as LiveChatTranscript ChatKey</description>
+        <developerName>ChatKey</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>Chat Key</label>
+    </contextVariables>
+    <contextVariables>
+        <dataType>Text</dataType>
+        <developerName>Input_from_user_quest</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>Input from user quest</label>
+    </contextVariables>
+    <contextVariables>
+        <dataType>Text</dataType>
+        <developerName>input</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>input</label>
     </contextVariables>
     <description>A bot from scratch.</description>
     <label>AI Assistant</label>
