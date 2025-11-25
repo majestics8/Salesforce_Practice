@@ -279,40 +279,40 @@ on:
       - 'force-app/**'
 
 jobs:
-
+# validation job
   validate-uat:
       if: github.event_name == 'pull_request'
       runs-on: ubuntu-latest
       environment: uat
       steps:
-          - uses: actions/setup-node@v3
+          - uses: actions/setup-node@v3    # installs node js in virtual machine 
             with:
               node-version: '18'
-          - name: 'Checkout source code'
+          - name: 'Checkout source code'   # clones or Download the repo in the runner machine 
             uses: actions/checkout@v3
-            with:
-              fetch-depth: '2'
-                
-          # Now Install Salesforce CLI
-          - name: 'Install sfdx'
+            with:                          # used for comapring the delta changes
+              fetch-depth: '2'             # it downloads the last two commit which is previous one before the current commit
+                                           # where Head = Latest Commit & Head~1 = previous commit
+          - name: 'Install sfdx'           # installs cli in order to run sf commands 
             run: npm install @salesforce/cli --global
-          - name: 'Installing sfdx git delta'
-            run: | 
+
+          - name: 'Installing sfdx git delta' #sfdx plugins: list all the installed plugins  and this plugins are use to generate delta changes btw two commits
+            run: |                           
                 echo Y | sfdx plugins:install sfdx-git-delta
-                sfdx plugins
+                sfdx plugins                                           
 
           - name: 'Create delta packages'
             run: | 
                 mkdir changed-sources
-                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
+                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/ 
                 echo "[INFO] Diff generated"
                 
           - name: 'validate to environment with running all local tests'
             run: | 
                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests
-  # 
+                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
+                sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --verbose --json
+# Deployment job  
   Deploy-to-uat:
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       runs-on: ubuntu-latest
@@ -326,7 +326,6 @@ jobs:
             with:
               fetch-depth: '2'
                 
-          # Now Install Salesforce CLI
           - name: 'Install sfdx'
             run: npm install @salesforce/cli --global
           - name: 'Installing sfdx git delta'
@@ -343,5 +342,5 @@ jobs:
           - name: 'Deploy to environment with running all local tests'
             run: | 
                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
-                sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests
+                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default 
+                sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests 
