@@ -265,17 +265,18 @@
 
 #  tests starts
 
-name: Deploy to Uat environment on push to main
+name: Deploy to sffnoobs environment on push to main
 
 on:
   push:
-    branches: 
-      - feature
+    branches: [ feature ]
+    paths:
+      - 'force-app/**'
 
 jobs:
-  Deploy-to-Uat-environment:
+  Deploy-to-sffnoobs-environment:
       runs-on: ubuntu-latest
-      environment: UAT
+      environment: sffnoobs
       steps:
           - uses: actions/setup-node@v3
             with:
