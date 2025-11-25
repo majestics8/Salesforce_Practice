@@ -311,7 +311,7 @@ jobs:
             run: | 
                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
                 sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
-                sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests 
+                sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --verbose --json
 # Deployment job  
   Deploy-to-uat:
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -342,5 +342,5 @@ jobs:
           - name: 'Deploy to environment with running all local tests'
             run: | 
                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
+                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default 
                 sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests 
