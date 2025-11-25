@@ -359,9 +359,9 @@ on:
     paths:
       - "force-app/**"
 
-vars:
-  NODE_VERSION: "18"
-  MIN_CODE_COVERAGE: "75"
+# vars:
+#   NODE_VERSION: "18"
+#   MIN_CODE_COVERAGE: "75"
 
 jobs:
 
@@ -378,7 +378,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "${{ vars.NODE_VERSION }}"
+          node-version: '18'
 
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
@@ -408,7 +408,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "${{ vars.NODE_VERSION }}"
+          node-version: '18'
 
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
@@ -485,8 +485,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
         with:
-          node-version: "${{ vars.NODE_VERSION }}"
-
+          node-version: '18'
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
 
