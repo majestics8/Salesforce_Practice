@@ -268,9 +268,9 @@
 name: Deploy to Uat environment on push to main
 
 on:
-  push:
+  pull_request:
     branches: 
-      - feature
+      - main
 
 jobs:
   Deploy-to-Uat-environment:
