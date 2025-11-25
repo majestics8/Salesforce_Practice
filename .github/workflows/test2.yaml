@@ -347,107 +347,80 @@
 
 
 name: Salesforce CI/CD to UAT Environment
-
-# Trigger the workflow
-on:
+'on':
   push:
     branches:
-      - main # Triggers full deployment to UAT
-      - feature # Triggers validation for feature branches (if pushed directly)
+      - main
+      - feature
   pull_request:
     branches:
-      - main # Triggers validation for PRs targeting main
+      - main
     paths:
-      - 'force-app/**' # Only run if changes are in Salesforce source code
-
-# Define variables for easy configuration
+      - force-app/**
 vars:
   NODE_VERSION: '18'
-  # Minimum acceptable overall code coverage percentage for new/changed code
   MIN_CODE_COVERAGE: '75'
-
 jobs:
-
-  # =======================================================
-  # JOB 1: Code Quality and Static Analysis (Pre-Validation)
-  # This job runs first to catch basic issues before deployment/validation.
-  # It's independent of 'pull_request' or 'push' to act as an early gate.
-  # =======================================================
   code-quality:
     runs-on: ubuntu-latest
     steps:
-      - name: 'Checkout source code'
+      - name: Checkout source code
         uses: actions/checkout@v3
-
-      - name: 'Setup Node.js'
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ vars.NODE_VERSION }}
-
-      - name: 'Install Salesforce CLI'
+          node-version: '${{ vars.NODE_VERSION }}'
+      - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
-
-      - name: 'Install PMD'
-        # Install PMD globally via npm or download it directly
+      - name: Install PMD
         run: npm install -g pmd-apex-cli
-
-      - name: 'Run Apex PMD Analysis'
-        run: |
+      - name: Run Apex PMD Analysis
+        run: >
           echo "Running Apex PMD analysis..."
+
           # Customize your PMD ruleset file (e.g., .pmd/ruleset.xml)
-          # PMD will exit with a non-zero code if violations are found, failing the step.
-          pmd-apex -d force-app -R 'pmd-ruleset.xml' -f text -failOnViolation true
+
+          # PMD will exit with a non-zero code if violations are found, failing
+          the step.
+
+          pmd-apex -d force-app -R 'pmd-ruleset.xml' -f text -failOnViolation
+          true
+
           echo "PMD analysis complete. No critical violations found."
-        # If you have a custom ruleset, make sure it's committed to your repo.
-        # Example: Create a file named 'pmd-ruleset.xml' in your repo root.
-        # <ruleset name="My Apex Ruleset"
-        #   xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
-        #   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        #   xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 http://pmd.sourceforge.net/ruleset_2_0_0.xsd">
-        #   <description>
-        #     Custom ruleset for Apex code quality.
-        #   </description>
-        #   <rule ref="category/apex/design.xml/AvoidDeeplyNestedIfStmts" />
-        #   <rule ref="category/apex/errorprone.xml/AvoidDirectAccessTriggerMap" />
-        # </ruleset>
-
-
-  # =======================================================
-  # JOB 2: Validation Job (for Pull Requests)
-  # Runs only on PRs to main. It uses HEAD~1 for delta comparison,
-  # which is sufficient for immediate PR feedback.
-  # =======================================================
   validate-uat:
-    needs: [code-quality] # This job depends on 'code-quality' passing
+    needs:
+      - code-quality
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    environment: uat # Link to GitHub Environment for visibility/approvals
+    environment: uat
     steps:
-      - name: 'Checkout source code'
+      - name: Checkout source code
         uses: actions/checkout@v3
         with:
-          fetch-depth: '2' # Fetches last two commits for HEAD~1 delta comparison
-
-      - name: 'Setup Node.js'
+          fetch-depth: '2'
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ vars.NODE_VERSION }}
-
-      - name: 'Install Salesforce CLI'
+          node-version: '${{ vars.NODE_VERSION }}'
+      - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
-
-      - name: 'Install sfdx-git-delta'
+      - name: Install sfdx-git-delta
         run: |
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
-
-      - name: 'Create delta packages for PR validation'
+      - name: Create delta packages for PR validation
         id: create_delta_pr
-        run: |
+        run: >
           mkdir changed-sources
-          sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/ --verbose
-          # Check if changed-sources/force-app is empty. If so, there's no deployable metadata change.
-          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
+
+          sf sgd source delta --to "HEAD" --from "HEAD~1" --output
+          changed-sources/ --generate-delta --source force-app/ --verbose
+
+          # Check if changed-sources/force-app is empty. If so, there's no
+          deployable metadata change.
+
+          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A
+          changed-sources/force-app)" ]; then
             echo "No deployable changes detected in force-app. Skipping validation."
             echo "::set-output name=NO_CHANGES::true"
           else
@@ -455,38 +428,44 @@ jobs:
             echo "[INFO] Diff generated for PR validation:"
             ls -laR changed-sources/force-app
           fi
-
-      - name: 'Authenticate to Salesforce Org (UAT) for Validation'
+      - name: Authenticate to Salesforce Org (UAT) for Validation
         if: steps.create_delta_pr.outputs.NO_CHANGES != 'true'
-        run: |
+        run: >
           echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-          sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
-          rm server.key # Clean up sensitive file immediately
 
-      - name: 'Validate to UAT environment with running all local tests'
+          sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }}
+          --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }}
+          --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
+
+          rm server.key # Clean up sensitive file immediately
+      - name: Validate to UAT environment with running all local tests
         if: steps.create_delta_pr.outputs.NO_CHANGES != 'true'
         id: validate_deployment
-        run: |
-          sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --verbose --json > validation_result.json
+        run: >
+          sf project deploy validate --source-dir changed-sources/force-app
+          --test-level RunLocalTests --verbose --json > validation_result.json
+
           cat validation_result.json # Print the JSON result to logs
-          # Check for success based on JSON output (more reliable than just exit code for some errors)
+
+          # Check for success based on JSON output (more reliable than just exit
+          code for some errors)
+
           if ! grep -q '"status": "Succeeded"' validation_result.json; then
               echo "Validation failed. See logs for details."
               exit 1
           fi
-
-      - name: 'Run Apex Tests and Generate Coverage (for PR)'
+      - name: Run Apex Tests and Generate Coverage (for PR)
         if: steps.create_delta_pr.outputs.NO_CHANGES != 'true'
-        run: |
+        run: >
           # Run tests specifically to get coverage, useful for merging to main
-          sf apex run test --code-coverage --output-dir ./test-results --json > test_coverage_result.json
+
+          sf apex run test --code-coverage --output-dir ./test-results --json >
+          test_coverage_result.json
+
           echo "::set-output name=test_result_file::test_coverage_result.json"
         id: run_tests_pr
-
-      - name: 'Check Code Coverage (for PR)'
+      - name: Check Code Coverage (for PR)
         if: steps.create_delta_pr.outputs.NO_CHANGES != 'true'
-        # Requires 'jq' for JSON parsing. Install it if not present.
-        # Add a step: `sudo apt-get update && sudo apt-get install -y jq` before this
         run: |
           if [ -f "./test-results/test-result-codecoverage.json" ]; then
             # Parse coverage from the generated JSON report
@@ -503,53 +482,48 @@ jobs:
           else
             echo "Code coverage report not found. Skipping coverage check."
           fi
-
-      - name: 'Upload Validation and Coverage Artifacts'
-        if: always() # Uploads even if previous steps fail
+      - name: Upload Validation and Coverage Artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: validation-artifacts-${{ github.sha }}
-          path: |
+          name: 'validation-artifacts-${{ github.sha }}'
+          path: >
             validation_result.json
+
             test_coverage_result.json
-            ./test-results/test-result-codecoverage.json # Ensure this path is correct if generated
+
+            ./test-results/test-result-codecoverage.json # Ensure this path is
+            correct if generated
+
             # Add PMD report if you want to generate it for PRs too
-
-
-  # =======================================================
-  # JOB 3: Deployment Job (for Pushes to 'main')
-  # Deploys only when code is pushed to the 'main' branch,
-  # and uses Git tags for precise delta comparison.
-  # =======================================================
   Deploy-to-uat:
-    needs: [validate-uat] # This job depends on 'validate-uat' passing
+    needs:
+      - validate-uat
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: uat # Link to GitHub Environment for approvals
+    environment: uat
     steps:
-      - name: 'Checkout source code (full history for tags)'
+      - name: Checkout source code (full history for tags)
         uses: actions/checkout@v3
         with:
-          fetch-depth: '0' # Fetch all history for proper tag comparison
-
-      - name: 'Setup Node.js'
+          fetch-depth: '0'
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ vars.NODE_VERSION }}
-
-      - name: 'Install Salesforce CLI'
+          node-version: '${{ vars.NODE_VERSION }}'
+      - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
-
-      - name: 'Install sfdx-git-delta'
+      - name: Install sfdx-git-delta
         run: |
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
-
-      - name: 'Determine source commit for delta deployment'
+      - name: Determine source commit for delta deployment
         id: determine_delta_source
-        run: |
-          LAST_UAT_DEPLOY_TAG=$(git describe --tags --abbrev=0 --match "uat-deployed/*" 2>/dev/null || true)
-          
+        run: >
+          LAST_UAT_DEPLOY_TAG=$(git describe --tags --abbrev=0 --match
+          "uat-deployed/*" 2>/dev/null || true)
+
+
           if [ -n "$LAST_UAT_DEPLOY_TAG" ]; then
             FROM_COMMIT=$(git rev-list -n 1 "$LAST_UAT_DEPLOY_TAG")
             echo "::set-output name=FROM_COMMIT::$FROM_COMMIT"
@@ -559,16 +533,23 @@ jobs:
             echo "::set-output name=FROM_COMMIT::$FIRST_COMMIT"
             echo "No previous UAT deployment tag found. Deploying all changes from initial commit: $FIRST_COMMIT"
           fi
+
           echo "::set-output name=TO_COMMIT::HEAD"
-
-
-      - name: 'Create delta packages for deployment'
+      - name: Create delta packages for deployment
         id: create_delta_deploy
-        run: |
+        run: >
           mkdir changed-sources
-          sf sgd source delta --to "${{ steps.determine_delta_source.outputs.TO_COMMIT }}" --from "${{ steps.determine_delta_source.outputs.FROM_COMMIT }}" --output changed-sources/ --generate-delta --source force-app/ --verbose
-          # Check if changed-sources/force-app is empty. If so, there's no deployable metadata change.
-          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
+
+          sf sgd source delta --to "${{
+          steps.determine_delta_source.outputs.TO_COMMIT }}" --from "${{
+          steps.determine_delta_source.outputs.FROM_COMMIT }}" --output
+          changed-sources/ --generate-delta --source force-app/ --verbose
+
+          # Check if changed-sources/force-app is empty. If so, there's no
+          deployable metadata change.
+
+          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A
+          changed-sources/force-app)" ]; then
             echo "No deployable changes detected in force-app. Skipping deployment."
             echo "::set-output name=NO_CHANGES::true"
           else
@@ -576,35 +557,40 @@ jobs:
             echo "[INFO] Diff generated for deployment:"
             ls -laR changed-sources/force-app
           fi
-
-      - name: 'Authenticate to Salesforce Org (UAT) for Deployment'
+      - name: Authenticate to Salesforce Org (UAT) for Deployment
         if: steps.create_delta_deploy.outputs.NO_CHANGES != 'true'
-        run: |
+        run: >
           echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-          sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
-          rm server.key # Clean up sensitive file immediately
 
-      - name: 'Deploy to UAT environment with running all local tests'
+          sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }}
+          --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }}
+          --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
+
+          rm server.key # Clean up sensitive file immediately
+      - name: Deploy to UAT environment with running all local tests
         if: steps.create_delta_deploy.outputs.NO_CHANGES != 'true'
         id: deploy_to_uat_org
-        run: |
-          sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests --verbose --json > deployment_result.json
+        run: >
+          sf project deploy start --source-dir changed-sources/force-app
+          --test-level RunLocalTests --verbose --json > deployment_result.json
+
           cat deployment_result.json # Print the JSON result to logs
+
           if ! grep -q '"status": "Succeeded"' deployment_result.json; then
               echo "Deployment failed. See logs for details."
               exit 1
           fi
-
-      - name: 'Run Apex Tests and Generate Coverage (for Deployment)'
+      - name: Run Apex Tests and Generate Coverage (for Deployment)
         if: steps.create_delta_deploy.outputs.NO_CHANGES != 'true'
-        run: |
-          # This run generates the coverage report that will be checked in the next step
-          sf apex run test --code-coverage --output-dir ./test-results --json > test_coverage_result.json
+        run: >
+          # This run generates the coverage report that will be checked in the
+          next step
+
+          sf apex run test --code-coverage --output-dir ./test-results --json >
+          test_coverage_result.json
         id: run_tests_deploy
-
-      - name: 'Check Code Coverage (for Deployment)'
+      - name: Check Code Coverage (for Deployment)
         if: steps.create_delta_deploy.outputs.NO_CHANGES != 'true'
-        # Install jq if not already installed (add a step: `sudo apt-get update && sudo apt-get install -y jq`)
         run: |
           if [ -f "./test-results/test-result-codecoverage.json" ]; then
             TOTAL_COVERAGE=$(cat ./test-results/test-result-codecoverage.json | jq '.result.coverage.apexCodeCoverage.overallCodeCoverage[0].numLocations / .result.coverage.apexCodeCoverage.overallCodeCoverage[0].numLocationsNotCovered * 100 | floor')
@@ -620,9 +606,8 @@ jobs:
           else
             echo "Code coverage report not found. Skipping coverage check."
           fi
-
-      - name: 'Tag successful deployment'
-        if: success() && steps.create_delta_deploy.outputs.NO_CHANGES != 'true' # Only tag if deployment succeeded and changes were actually deployed
+      - name: Tag successful deployment
+        if: success() && steps.create_delta_deploy.outputs.NO_CHANGES != 'true'
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions Bot"
@@ -630,12 +615,11 @@ jobs:
           git tag -a "$TAG_NAME" -m "Deployed commit ${{ github.sha }} to UAT"
           git push origin "$TAG_NAME"
           echo "Successfully tagged deployment: $TAG_NAME"
-
-      - name: 'Upload Deployment and Coverage Artifacts'
-        if: always() # Uploads even if previous steps fail
+      - name: Upload Deployment and Coverage Artifacts
+        if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: deployment-artifacts-${{ github.sha }}
+          name: 'deployment-artifacts-${{ github.sha }}'
           path: |
             deployment_result.json
             test_coverage_result.json
