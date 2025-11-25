@@ -265,13 +265,13 @@
 
 #  tests starts
 
-name: Deploy to sffnoobs environment on push to main
+name: Deploy and validate to uat environment
 
 on:
   push:
     branches:
-      -main
-      -feature
+      - main
+      - feature
   pull_request:
     branches: 
       - main
@@ -312,7 +312,7 @@ jobs:
                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
                 sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                 sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests
-  
+  # 
   Deploy-to-uat:
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       runs-on: ubuntu-latest
