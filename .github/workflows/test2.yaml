@@ -279,7 +279,7 @@ on:
       - 'force-app/**'
 
 jobs:
-
+# validation job
   validate-uat:
       if: github.event_name == 'pull_request'
       runs-on: ubuntu-latest
@@ -293,7 +293,6 @@ jobs:
             with:
               fetch-depth: '2'
                 
-          # Now Install Salesforce CLI
           - name: 'Install sfdx'
             run: npm install @salesforce/cli --global
           - name: 'Installing sfdx git delta'
@@ -312,7 +311,7 @@ jobs:
                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
                 sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default
                 sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests
-  # 
+# Deployment job  
   Deploy-to-uat:
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       runs-on: ubuntu-latest
@@ -326,7 +325,6 @@ jobs:
             with:
               fetch-depth: '2'
                 
-          # Now Install Salesforce CLI
           - name: 'Install sfdx'
             run: npm install @salesforce/cli --global
           - name: 'Installing sfdx git delta'
