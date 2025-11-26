@@ -397,7 +397,7 @@ jobs:
           ./pmd/pmd-bin-7.7.0/bin/pmd check \
             -d force-app \
             -R rulesets/apex/quickstart.xml \
-            -f text || true 
+            -f text 
         
   ###############################################################
   # 2. VALIDATION JOB FOR PULL REQUESTS
