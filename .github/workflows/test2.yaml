@@ -392,10 +392,14 @@ jobs:
 
       - name: Run Apex PMD Analysis
         run: |
-          ./pmd/pmd-bin-7.18.0/bin/run.sh pmd -d force-app \
-          -R rulesets/apex/quickstart.xml \
-          -f text -failOnViolation true
-
+          PMD_DIR=$(find pmd -type f -name run.sh | head -n 1 | xargs dirname)
+          echo "PMD Directory = $PMD_DIR"
+    
+          $PMD_DIR/run.sh pmd \
+            -d force-app \
+            -R rulesets/apex/quickstart.xml \
+            -f text \
+            -failOnViolation true
   ###############################################################
   # 2. VALIDATION JOB FOR PULL REQUESTS
   ###############################################################
