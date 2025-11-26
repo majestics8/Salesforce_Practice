@@ -427,13 +427,7 @@ jobs:
         id: delta_pr
         run: |
           mkdir changed-sources
-
-          sf sgd source delta \
-            --from "${{ github.event.pull_request.base.sha }}" \
-            --to "${{ github.event.pull_request.head.sha }}" \
-            --output changed-sources/ \
-            --generate-delta \
-            --source force-app/ 
+          sf sgd source delta --to "${{ github.event.pull_request.head.sha }}" --from "${{ github.event.pull_request.base.sha }}" --output changed-sources/ --generate-delta --source force-app/
 
           if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
