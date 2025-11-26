@@ -497,12 +497,14 @@ jobs:
       ###########################################################
       # Determine Correct Commit Range Using Tags
       ###########################################################
+      # if not tag exists FROM=$(git rev-list --max-parents=0 HEAD) this takes root commit from the head ex: A-->Root Commit B C D-->latest commit  then From Becomes commit A
+      # if tags exists FROM=$(git rev-list -n 1 "$LAST_TAG") then checks this tag is related to which commit lets say it was commit A then from Becomes A
       - name: Find last UAT deployment tag
         id: last_tag
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 --match "uat-deployed/*" 2>/dev/null || true)
           if [ -z "$LAST_TAG" ]; then
-            FROM=$(git rev-list --max-parents=0 HEAD)
+            FROM=$(git rev-list --max-parents=0 HEAD)    
           else
             FROM=$(git rev-list -n 1 "$LAST_TAG")
           fi
@@ -546,7 +548,7 @@ jobs:
             --instance-url "${{ vars.INSTANCE_URL }}" \
             --set-default \
             --verbose
-          rm server.key
+          rm server.key  
 
       ###########################################################
       # Deploy Delta to UAT
