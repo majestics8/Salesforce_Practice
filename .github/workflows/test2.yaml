@@ -385,17 +385,15 @@ jobs:
 
       - name: Install PMD
         run: |
-          echo "Installing PMD..."
-          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.18.0/pmd-dist-7.18.0-bin.zip
+          echo "Downloading PMD..."
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
           unzip pmd.zip -d pmd
-          ls -la pmd
+          echo "PMD extracted:"
+          ls -R pmd
 
       - name: Run Apex PMD Analysis
         run: |
-          PMD_DIR=$(find pmd -type f -name run.sh | head -n 1 | xargs dirname)
-          echo "PMD Directory = $PMD_DIR"
-    
-          $PMD_DIR/run.sh pmd \
+          ./pmd/pmd-bin-7.7.0/bin/run.sh pmd \
             -d force-app \
             -R rulesets/apex/quickstart.xml \
             -f text \
