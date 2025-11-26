@@ -464,6 +464,7 @@ jobs:
 
   Deploy-to-uat:
    # needs: validate-uat
+    needs: [code-quality]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: uat
