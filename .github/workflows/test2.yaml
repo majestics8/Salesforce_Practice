@@ -365,9 +365,7 @@ on:
 
 jobs:
 
-  ###############################################################
   # 1. CODE QUALITY JOB
-  ###############################################################
   code-quality:
     runs-on: ubuntu-latest
 
@@ -399,9 +397,8 @@ jobs:
             -R rulesets/apex/quickstart.xml \
             -f text || true 
         
-  ###############################################################
+  
   # 2. VALIDATION JOB FOR PULL REQUESTS
-  ###############################################################
   validate-uat:
     needs: [code-quality]
     if: github.event_name == 'pull_request'
@@ -425,9 +422,7 @@ jobs:
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
 
-      ###########################################################
       # Correct PR Delta (NO MORE HEAD~1 ISSUES)
-      ###########################################################
       - name: Create Delta for PR Validation
         id: delta_pr
         run: |
@@ -438,8 +433,7 @@ jobs:
             --to "${{ github.event.pull_request.head.sha }}" \
             --output changed-sources/ \
             --generate-delta \
-            --source force-app/ \
-            --verbose
+            --source force-app/ 
 
           if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
@@ -447,9 +441,8 @@ jobs:
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           fi
 
-      ###########################################################
       # Authenticate
-      ###########################################################
+      
       - name: Authenticate to UAT
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
@@ -459,24 +452,20 @@ jobs:
             --jwt-key-file server.key \
             --client-id "${{ secrets.CONSUMER_KEY }}" \
             --instance-url "${{ vars.INSTANCE_URL }}" \
-            --set-default \
-            --verbose
+            --set-default 
           rm server.key
 
-      ###########################################################
       # Validate Deployment
-      ###########################################################
+
       - name: Validate Delta in UAT
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
           sf project deploy validate \
             --source-dir changed-sources/force-app \
-            --test-level RunLocalTests \
-            --verbose
+            --test-level RunLocalTests 
 
-  ###############################################################
   # 3. DEPLOY TO UAT ON MAIN BRANCH
-  ###############################################################
+
   Deploy-to-uat:
     needs: validate-uat
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -501,9 +490,7 @@ jobs:
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
 
-      ###########################################################
       # Determine Correct Commit Range Using Tags
-      ###########################################################
       # if not tag exists FROM=$(git rev-list --max-parents=0 HEAD) this takes root commit from the head ex: A-->Root Commit B C D-->latest commit  then From Becomes commit A
       # if tags exists FROM=$(git rev-list -n 1 "$LAST_TAG") then checks this tag is related to which commit lets say it was commit A then from Becomes A
       - name: Find last UAT deployment tag
@@ -519,9 +506,7 @@ jobs:
           echo "FROM_COMMIT=$FROM" >> $GITHUB_OUTPUT
           echo "TO_COMMIT=HEAD" >> $GITHUB_OUTPUT
 
-      ###########################################################
       # Delta for main deployment
-      ###########################################################
       - name: Create delta for UAT deployment
         id: delta_deploy
         run: |
@@ -532,8 +517,7 @@ jobs:
             --to "HEAD" \
             --output changed-sources/ \
             --generate-delta \
-            --source force-app/ \
-            --verbose
+            --source force-app/ 
 
           if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
@@ -541,9 +525,7 @@ jobs:
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           fi
 
-      ###########################################################
       # Authenticate
-      ###########################################################
       - name: Authenticate to UAT
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
@@ -553,24 +535,20 @@ jobs:
             --jwt-key-file server.key \
             --client-id "${{ secrets.CONSUMER_KEY }}" \
             --instance-url "${{ vars.INSTANCE_URL }}" \
-            --set-default \
-            --verbose
+            --set-default
           rm server.key  
 
-      ###########################################################
       # Deploy Delta to UAT
-      ###########################################################
+      
       - name: Deploy to UAT
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
           sf project deploy start \
             --source-dir changed-sources/force-app \
-            --test-level RunLocalTests \
-            --verbose
+            --test-level RunLocalTests 
 
-      ###########################################################
       # Tag Deployment
-      ###########################################################
+      
       - name: Tag deployment
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
