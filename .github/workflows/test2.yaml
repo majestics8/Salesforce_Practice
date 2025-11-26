@@ -429,7 +429,20 @@ jobs:
         id: delta_pr
         run: |
           mkdir changed-sources
-          sf sgd source delta --to "${{ github.event.pull_request.head.sha }}" --from "${{ github.event.pull_request.base.sha }}" --output changed-sources/ --generate-delta --source force-app/
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR SHAs
+            FROM="${{ github.event.pull_request.base.sha }}"
+            TO="${{ github.event.pull_request.head.sha }}"
+          else
+            # PUSH SHAs
+            TO=$(git rev-parse HEAD)
+            FROM=$(git rev-parse HEAD~1)
+          fi
+
+          echo "FROM_COMMIT=$FROM"
+          echo "TO_COMMIT=$TO"
+
+          sf sgd source delta --to "$TO" --from "$FROM" --output changed-sources/ --generate-delta --source force-app/
 
           if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
@@ -463,8 +476,8 @@ jobs:
   # 3. DEPLOY TO UAT ON MAIN BRANCH
 
   Deploy-to-uat:
-   # needs: validate-uat
-    needs: [code-quality]
+    needs: validate-uat
+    #needs: [code-quality]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: uat
