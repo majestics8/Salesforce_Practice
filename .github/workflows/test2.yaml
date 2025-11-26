@@ -386,9 +386,9 @@ jobs:
       - name: Install PMD
         run: |
           echo "Installing PMD..."
-          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/latest/download/pmd-bin.zip
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.18.0/pmd-dist-7.18.0-bin.zip
           unzip pmd.zip -d pmd
-          echo "PMD Installed."
+          ls -la pmd
 
       - name: Run Apex PMD Analysis
         run: |
