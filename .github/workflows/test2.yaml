@@ -393,11 +393,12 @@ jobs:
 
       - name: Run Apex PMD Analysis
         run: |
-          ./pmd/pmd-bin-7.7.0/bin/run.sh pmd \
+          chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
+          ./pmd/pmd-bin-7.7.0/bin/pmd check \
             -d force-app \
             -R rulesets/apex/quickstart.xml \
-            -f text \
-            -failOnViolation true
+            -f text
+            --fail-on-violation true
   ###############################################################
   # 2. VALIDATION JOB FOR PULL REQUESTS
   ###############################################################
