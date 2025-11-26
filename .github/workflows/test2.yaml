@@ -398,7 +398,7 @@ jobs:
             -d force-app \
             -R rulesets/apex/quickstart.xml \
             -f text
-        #--fail-on-violation true
+        
   ###############################################################
   # 2. VALIDATION JOB FOR PULL REQUESTS
   ###############################################################
