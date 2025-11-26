@@ -384,7 +384,11 @@ jobs:
         run: npm install @salesforce/cli --global
 
       - name: Install PMD
-        run: npm install -g pmd-apex-cli
+        run: |
+          echo "Installing PMD..."
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/latest/download/pmd-bin.zip
+          unzip pmd.zip -d pmd
+          echo "PMD Installed."
 
       - name: Run Apex PMD Analysis
         run: |
