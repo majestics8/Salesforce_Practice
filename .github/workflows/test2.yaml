@@ -265,7 +265,88 @@
 
 #  tests starts
 
-name: Deploy and validate to uat environment
+# name: Deploy and validate to uat environment
+
+# on:
+#   push:
+#     branches:
+#       - main
+#       - feature
+#   pull_request:
+#     branches: 
+#       - main
+#     paths:
+#       - 'force-app/**'
+
+# jobs:
+# # validation job
+#   validate-uat:
+#       if: github.event_name == 'pull_request'
+#       runs-on: ubuntu-latest
+#       environment: uat
+#       steps:
+#           - uses: actions/setup-node@v3    # installs node js in virtual machine 
+#             with:
+#               node-version: '18'
+#           - name: 'Checkout source code'   # clones or Download the repo in the runner machine 
+#             uses: actions/checkout@v3
+#             with:                          # used for comapring the delta changes
+#               fetch-depth: '2'             # it downloads the last two commit which is previous one before the current commit
+#                                            # where Head = Latest Commit & Head~1 = previous commit
+#           - name: 'Install sfdx'           # installs cli in order to run sf commands 
+#             run: npm install @salesforce/cli --global
+
+#           - name: 'Installing sfdx git delta' #sfdx plugins: list all the installed plugins  and this plugins are use to generate delta changes btw two commits
+#             run: |                           
+#                 echo Y | sfdx plugins:install sfdx-git-delta
+#                 sfdx plugins                                           
+
+#           - name: 'Create delta packages'
+#             run: | 
+#                 mkdir changed-sources
+#                 sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/ 
+#                 echo "[INFO] Diff generated"
+                
+#           - name: 'validate to environment with running all local tests'
+#             run: | 
+#                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
+#                 sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
+#                 sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --verbose --json
+# # Deployment job  
+#   Deploy-to-uat:
+#       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+#       runs-on: ubuntu-latest
+#       environment: uat
+#       steps:
+#           - uses: actions/setup-node@v3
+#             with:
+#               node-version: '18'
+#           - name: 'Checkout source code'
+#             uses: actions/checkout@v3
+#             with:
+#               fetch-depth: '2'
+                
+#           - name: 'Install sfdx'
+#             run: npm install @salesforce/cli --global
+#           - name: 'Installing sfdx git delta'
+#             run: | 
+#                 echo Y | sfdx plugins:install sfdx-git-delta
+#                 sfdx plugins
+
+#           - name: 'Create delta packages'
+#             run: | 
+#                 mkdir changed-sources
+#                 sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
+#                 echo "[INFO] Diff generated"
+                
+#           - name: 'Deploy to environment with running all local tests'
+#             run: | 
+#                 echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
+#                 sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default 
+#                 sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests 
+
+
+name: Salesforce CI/CD to UAT Environment
 
 on:
   push:
@@ -273,74 +354,230 @@ on:
       - main
       - feature
   pull_request:
-    branches: 
+    branches:
       - main
     paths:
-      - 'force-app/**'
+      - "force-app/**"
+
+# vars:
+#   NODE_VERSION: "18"
+#   MIN_CODE_COVERAGE: "75"
 
 jobs:
-# validation job
+
+  ###############################################################
+  # 1. CODE QUALITY JOB
+  ###############################################################
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      - name: Install PMD
+        run: |
+          echo "Downloading PMD..."
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
+          unzip pmd.zip -d pmd
+          echo "PMD extracted:"
+          ls -R pmd
+
+      - name: Run Apex PMD Analysis
+        run: |
+          chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
+          ./pmd/pmd-bin-7.7.0/bin/pmd check \
+            -d force-app \
+            -R rulesets/apex/quickstart.xml \
+            -f text || true 
+        
+  ###############################################################
+  # 2. VALIDATION JOB FOR PULL REQUESTS
+  ###############################################################
   validate-uat:
-      if: github.event_name == 'pull_request'
-      runs-on: ubuntu-latest
-      environment: uat
-      steps:
-          - uses: actions/setup-node@v3    # installs node js in virtual machine 
-            with:
-              node-version: '18'
-          - name: 'Checkout source code'   # clones or Download the repo in the runner machine 
-            uses: actions/checkout@v3
-            with:                          # used for comapring the delta changes
-              fetch-depth: '2'             # it downloads the last two commit which is previous one before the current commit
-                                           # where Head = Latest Commit & Head~1 = previous commit
-          - name: 'Install sfdx'           # installs cli in order to run sf commands 
-            run: npm install @salesforce/cli --global
+    needs: [code-quality]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: uat
 
-          - name: 'Installing sfdx git delta' #sfdx plugins: list all the installed plugins  and this plugins are use to generate delta changes btw two commits
-            run: |                           
-                echo Y | sfdx plugins:install sfdx-git-delta
-                sfdx plugins                                           
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
 
-          - name: 'Create delta packages'
-            run: | 
-                mkdir changed-sources
-                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/ 
-                echo "[INFO] Diff generated"
-                
-          - name: 'validate to environment with running all local tests'
-            run: | 
-                echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default --verbose
-                sf project deploy validate --source-dir changed-sources/force-app --test-level RunLocalTests --verbose --json
-# Deployment job  
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      - name: Install sfdx-git-delta
+        run: |
+          echo Y | sf plugins install sfdx-git-delta
+          sf plugins
+
+      ###########################################################
+      # Correct PR Delta (NO MORE HEAD~1 ISSUES)
+      ###########################################################
+      - name: Create Delta for PR Validation
+        id: delta_pr
+        run: |
+          mkdir changed-sources
+
+          sf sgd source delta \
+            --from "${{ github.event.pull_request.base.sha }}" \
+            --to "${{ github.event.pull_request.head.sha }}" \
+            --output changed-sources/ \
+            --generate-delta \
+            --source force-app/ \
+            --verbose
+
+          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
+            echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
+          else
+            echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
+          fi
+
+      ###########################################################
+      # Authenticate
+      ###########################################################
+      - name: Authenticate to UAT
+        if: steps.delta_pr.outputs.NO_CHANGES == 'false'
+        run: |
+          echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
+          sf org login jwt \
+            --username "${{ secrets.DEPLOYMENT_USER_NAME }}" \
+            --jwt-key-file server.key \
+            --client-id "${{ secrets.CONSUMER_KEY }}" \
+            --instance-url "${{ vars.INSTANCE_URL }}" \
+            --set-default \
+            --verbose
+          rm server.key
+
+      ###########################################################
+      # Validate Deployment
+      ###########################################################
+      - name: Validate Delta in UAT
+        if: steps.delta_pr.outputs.NO_CHANGES == 'false'
+        run: |
+          sf project deploy validate \
+            --source-dir changed-sources/force-app \
+            --test-level RunLocalTests \
+            --verbose
+
+  ###############################################################
+  # 3. DEPLOY TO UAT ON MAIN BRANCH
+  ###############################################################
   Deploy-to-uat:
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      runs-on: ubuntu-latest
-      environment: uat
-      steps:
-          - uses: actions/setup-node@v3
-            with:
-              node-version: '18'
-          - name: 'Checkout source code'
-            uses: actions/checkout@v3
-            with:
-              fetch-depth: '2'
-                
-          - name: 'Install sfdx'
-            run: npm install @salesforce/cli --global
-          - name: 'Installing sfdx git delta'
-            run: | 
-                echo Y | sfdx plugins:install sfdx-git-delta
-                sfdx plugins
+    needs: validate-uat
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: uat
 
-          - name: 'Create delta packages'
-            run: | 
-                mkdir changed-sources
-                sf sgd source delta --to "HEAD" --from "HEAD~1" --output changed-sources/ --generate-delta --source force-app/
-                echo "[INFO] Diff generated"
-                
-          - name: 'Deploy to environment with running all local tests'
-            run: | 
-                echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-                sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default 
-                sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests 
+    steps:
+      - name: Checkout full repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      - name: Install sfdx-git-delta
+        run: |
+          echo Y | sf plugins install sfdx-git-delta
+          sf plugins
+
+      ###########################################################
+      # Determine Correct Commit Range Using Tags
+      ###########################################################
+      # if not tag exists FROM=$(git rev-list --max-parents=0 HEAD) this takes root commit from the head ex: A-->Root Commit B C D-->latest commit  then From Becomes commit A
+      # if tags exists FROM=$(git rev-list -n 1 "$LAST_TAG") then checks this tag is related to which commit lets say it was commit A then from Becomes A
+      - name: Find last UAT deployment tag
+        id: last_tag
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "uat-deployed/*" 2>/dev/null || true)
+          if [ -z "$LAST_TAG" ]; then
+            FROM=$(git rev-list --max-parents=0 HEAD)    
+          else
+            FROM=$(git rev-list -n 1 "$LAST_TAG")
+          fi
+
+          echo "FROM_COMMIT=$FROM" >> $GITHUB_OUTPUT
+          echo "TO_COMMIT=HEAD" >> $GITHUB_OUTPUT
+
+      ###########################################################
+      # Delta for main deployment
+      ###########################################################
+      - name: Create delta for UAT deployment
+        id: delta_deploy
+        run: |
+          mkdir changed-sources
+
+          sf sgd source delta \
+            --from "${{ steps.last_tag.outputs.FROM_COMMIT }}" \
+            --to "HEAD" \
+            --output changed-sources/ \
+            --generate-delta \
+            --source force-app/ \
+            --verbose
+
+          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
+            echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
+          else
+            echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
+          fi
+
+      ###########################################################
+      # Authenticate
+      ###########################################################
+      - name: Authenticate to UAT
+        if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
+        run: |
+          echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
+          sf org login jwt \
+            --username "${{ secrets.DEPLOYMENT_USER_NAME }}" \
+            --jwt-key-file server.key \
+            --client-id "${{ secrets.CONSUMER_KEY }}" \
+            --instance-url "${{ vars.INSTANCE_URL }}" \
+            --set-default \
+            --verbose
+          rm server.key  
+
+      ###########################################################
+      # Deploy Delta to UAT
+      ###########################################################
+      - name: Deploy to UAT
+        if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
+        run: |
+          sf project deploy start \
+            --source-dir changed-sources/force-app \
+            --test-level RunLocalTests \
+            --verbose
+
+      ###########################################################
+      # Tag Deployment
+      ###########################################################
+      - name: Tag deployment
+        if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions Bot"
+
+          TAG="uat-deployed/${{ github.sha }}"
+          git tag -a "$TAG" -m "Deployed ${{ github.sha }} to UAT"
+          git push origin "$TAG"
+
