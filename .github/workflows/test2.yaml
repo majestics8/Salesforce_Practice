@@ -392,9 +392,9 @@ jobs:
 
       - name: Run Apex PMD Analysis
         run: |
-          echo "Running PMD Code Scan..."
-          pmd-apex -d force-app -R 'pmd-ruleset.xml' -f text -failOnViolation true
-          echo "PMD Scan Completed. No critical issues."
+          ./pmd/pmd-bin-7.18.0/bin/run.sh pmd -d force-app \
+          -R rulesets/apex/quickstart.xml \
+          -f text -failOnViolation true
 
   ###############################################################
   # 2. VALIDATION JOB FOR PULL REQUESTS
