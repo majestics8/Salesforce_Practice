@@ -351,11 +351,13 @@ name: Salesforce CI/CD to UAT Environment
 on:
   push:
     branches:
-      - main
+      #- main
       - feature
+      - uat
   pull_request:
     branches:
-      - main
+      #- main
+      - uat
     paths:
       - "force-app/**"
 
@@ -401,7 +403,7 @@ jobs:
   # 2. VALIDATION JOB FOR PULL REQUESTS
   validate-uat:
     needs: [code-quality]
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/uat')
     runs-on: ubuntu-latest
     environment: uat
 
@@ -478,7 +480,7 @@ jobs:
   Deploy-to-uat:
     needs: validate-uat
     #needs: [code-quality]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/uat'
     runs-on: ubuntu-latest
     environment: uat
 
