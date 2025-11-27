@@ -1,191 +1,191 @@
-# Name of the GitHub Action workflow
-name: Deploy to orgfarm environment on push to main
+# # Name of the GitHub Action workflow
+# name: Deploy to orgfarm environment on push to main
  
-# Trigger conditions for this workflow
-on:
-  push:
-    branches:
-      - main                    # Only trigger on pushes to the main branch
-    paths:
-      - 'force-app/**'          # Only trigger when files in force-app directory change
+# # Trigger conditions for this workflow
+# on:
+#   push:
+#     branches:
+#       - main                    # Only trigger on pushes to the main branch
+#     paths:
+#       - 'force-app/**'          # Only trigger when files in force-app directory change
  
-# Define the deployment job
-jobs:
-  deploy-to-orgfarm:            # Job identifier (using kebab-case for consistency)
-    name: Deploy to Orgfarm Dev1  # Human-readable job name
-    runs-on: ubuntu-latest      # Use the latest Ubuntu runner
+# # Define the deployment job
+# jobs:
+#   deploy-to-orgfarm:            # Job identifier (using kebab-case for consistency)
+#     name: Deploy to Orgfarm Dev1  # Human-readable job name
+#     runs-on: ubuntu-latest      # Use the latest Ubuntu runner
    
-    # Link to GitHub environment for environment-specific secrets and protection rules
-    environment:
-      name: orgfarmdev1         # Environment name
-      url: ${{ vars.INSTANCE_URL }}  # Optional: Link to org URL in deployment view
+#     # Link to GitHub environment for environment-specific secrets and protection rules
+#     environment:
+#       name: orgfarmdev1         # Environment name
+#       url: ${{ vars.INSTANCE_URL }}  # Optional: Link to org URL in deployment view
    
-    # Set timeout to prevent jobs from running indefinitely
-    timeout-minutes: 30         # Adjust based on typical deployment duration
+#     # Set timeout to prevent jobs from running indefinitely
+#     timeout-minutes: 30         # Adjust based on typical deployment duration
    
-    steps:
-      # ============================================
-      # STEP 1: Checkout Repository
-      # ============================================
-      - name: Checkout source code
-        uses: actions/checkout@v4  # Use v4 (latest stable version)
-        with:
-          fetch-depth: 0        # Fetch complete history for accurate delta calculations
-          # This ensures git delta can compare commits properly
+#     steps:
+#       # ============================================
+#       # STEP 1: Checkout Repository
+#       # ============================================
+#       - name: Checkout source code
+#         uses: actions/checkout@v4  # Use v4 (latest stable version)
+#         with:
+#           fetch-depth: 0        # Fetch complete history for accurate delta calculations
+#           # This ensures git delta can compare commits properly
      
-      # ============================================
-      # STEP 2: Setup Node.js Environment
-      # ============================================
-      - name: Setup Node.js
-        uses: actions/setup-node@v4  # Use v4 for better performance
-        with:
-          node-version: '20'    # Use Node 20 LTS (18 is approaching EOL)
-          cache: 'npm'          # Cache npm dependencies for faster runs
+#       # ============================================
+#       # STEP 2: Setup Node.js Environment
+#       # ============================================
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v4  # Use v4 for better performance
+#         with:
+#           node-version: '20'    # Use Node 20 LTS (18 is approaching EOL)
+#           cache: 'npm'          # Cache npm dependencies for faster runs
      
-      # ============================================
-      # STEP 3: Install Salesforce CLI
-      # ============================================
-      - name: Install Salesforce CLI
-        run: |
-          npm install @salesforce/cli@latest --global
-          sf version            # Verify installation and log version
+#       # ============================================
+#       # STEP 3: Install Salesforce CLI
+#       # ============================================
+#       - name: Install Salesforce CLI
+#         run: |
+#           npm install @salesforce/cli@latest --global
+#           sf version            # Verify installation and log version
      
-      # ============================================
-      # STEP 4: Install sfdx-git-delta Plugin
-      # ============================================
-      - name: Install sfdx-git-delta plugin
-        run: |
-          echo "Installing sfdx-git-delta plugin..."
-          echo y | sf plugins install sfdx-git-delta
-          sf plugins --core      # List installed plugins for verification
+#       # ============================================
+#       # STEP 4: Install sfdx-git-delta Plugin
+#       # ============================================
+#       - name: Install sfdx-git-delta plugin
+#         run: |
+#           echo "Installing sfdx-git-delta plugin..."
+#           echo y | sf plugins install sfdx-git-delta
+#           sf plugins --core      # List installed plugins for verification
      
-      # ============================================
-      # STEP 5: Generate Delta Package
-      # ============================================
-      - name: Create delta package for changed components
-        run: |
-          echo "=========================================="
-          echo "Generating delta package..."
-          echo "From commit: ${{ github.event.before }}"
-          echo "To commit: ${{ github.sha }}"
-          echo "=========================================="
+#       # ============================================
+#       # STEP 5: Generate Delta Package
+#       # ============================================
+#       - name: Create delta package for changed components
+#         run: |
+#           echo "=========================================="
+#           echo "Generating delta package..."
+#           echo "From commit: ${{ github.event.before }}"
+#           echo "To commit: ${{ github.sha }}"
+#           echo "=========================================="
          
-          # Create directory for delta output
-          mkdir -p changed-sources
+#           # Create directory for delta output
+#           mkdir -p changed-sources
          
-          # Handle first push scenario (when there's no previous commit)
-          if [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
-            echo "First push detected - deploying all components"
-            # For first push, copy entire force-app directory
-            cp -r force-app changed-sources/
-          else
-            # Generate delta package comparing two commits
-            sf sgd source delta \
-              --from "${{ github.event.before }}" \
-              --to "${{ github.sha }}" \
-              --output changed-sources/ \
-              --generate-delta \
-              --source force-app/ \
-              --ignore .sgdignore
+#           # Handle first push scenario (when there's no previous commit)
+#           if [ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]; then
+#             echo "First push detected - deploying all components"
+#             # For first push, copy entire force-app directory
+#             cp -r force-app changed-sources/
+#           else
+#             # Generate delta package comparing two commits
+#             sf sgd source delta \
+#               --from "${{ github.event.before }}" \
+#               --to "${{ github.sha }}" \
+#               --output changed-sources/ \
+#               --generate-delta \
+#               --source force-app/ \
+#               --ignore .sgdignore
            
-            echo "Delta package created successfully"
-          fi
+#             echo "Delta package created successfully"
+#           fi
          
-          # Display what changed (useful for debugging)
-          echo "=========================================="
-          echo "Changed files:"
-          ls -la changed-sources/ || echo "No changes detected"
-          echo "=========================================="
+#           # Display what changed (useful for debugging)
+#           echo "=========================================="
+#           echo "Changed files:"
+#           ls -la changed-sources/ || echo "No changes detected"
+#           echo "=========================================="
      
-      # ============================================
-      # STEP 6: Check if Delta Package is Empty
-      # ============================================
-      - name: Verify delta package contains changes
-        id: check-delta
-        run: |
-          # Check if package.xml exists and contains deployable components
-          if [ -f "changed-sources/package.xml" ]; then
-            # Check if package.xml has any components (more than just header)
-            COMPONENT_COUNT=$(grep -c "<members>" changed-sources/package.xml || echo "0")
-            if [ "$COMPONENT_COUNT" -gt 0 ]; then
-              echo "has_changes=true" >> $GITHUB_OUTPUT
-              echo "Found $COMPONENT_COUNT component(s) to deploy"
-            else
-              echo "has_changes=false" >> $GITHUB_OUTPUT
-              echo "No deployable components found in delta"
-            fi
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "No package.xml generated - no changes to deploy"
-          fi
+#       # ============================================
+#       # STEP 6: Check if Delta Package is Empty
+#       # ============================================
+#       - name: Verify delta package contains changes
+#         id: check-delta
+#         run: |
+#           # Check if package.xml exists and contains deployable components
+#           if [ -f "changed-sources/package.xml" ]; then
+#             # Check if package.xml has any components (more than just header)
+#             COMPONENT_COUNT=$(grep -c "<members>" changed-sources/package.xml || echo "0")
+#             if [ "$COMPONENT_COUNT" -gt 0 ]; then
+#               echo "has_changes=true" >> $GITHUB_OUTPUT
+#               echo "Found $COMPONENT_COUNT component(s) to deploy"
+#             else
+#               echo "has_changes=false" >> $GITHUB_OUTPUT
+#               echo "No deployable components found in delta"
+#             fi
+#           else
+#             echo "has_changes=false" >> $GITHUB_OUTPUT
+#             echo "No package.xml generated - no changes to deploy"
+#           fi
      
-      # ============================================
-      # STEP 7: Authenticate to Salesforce Org
-      # ============================================
-      - name: Authenticate to Salesforce using JWT
-        if: steps.check-delta.outputs.has_changes == 'true'
-        run: |
-          echo "Authenticating to Salesforce org..."
+#       # ============================================
+#       # STEP 7: Authenticate to Salesforce Org
+#       # ============================================
+#       - name: Authenticate to Salesforce using JWT
+#         if: steps.check-delta.outputs.has_changes == 'true'
+#         run: |
+#           echo "Authenticating to Salesforce org..."
          
-          # Write JWT private key to file (with secure permissions)
-          echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-          chmod 600 server.key  # Restrict file permissions for security
+#           # Write JWT private key to file (with secure permissions)
+#           echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
+#           chmod 600 server.key  # Restrict file permissions for security
          
-          # Authenticate using JWT bearer flow
-          sf org login jwt \
-            --username "${{ secrets.DEPLOYMENT_USER_NAME }}" \
-            --jwt-key-file server.key \
-            --client-id "${{ secrets.CONSUMER_KEY }}" \
-            --instance-url "${{ vars.INSTANCE_URL }}" \
-            --alias orgfarm-dev \
-            --set-default
+#           # Authenticate using JWT bearer flow
+#           sf org login jwt \
+#             --username "${{ secrets.DEPLOYMENT_USER_NAME }}" \
+#             --jwt-key-file server.key \
+#             --client-id "${{ secrets.CONSUMER_KEY }}" \
+#             --instance-url "${{ vars.INSTANCE_URL }}" \
+#             --alias orgfarm-dev \
+#             --set-default
          
-          # Verify authentication
-          sf org display --target-org orgfarm-dev
+#           # Verify authentication
+#           sf org display --target-org orgfarm-dev
          
-          # Clean up sensitive key file
-          rm -f server.key
-          echo "Authentication successful"
+#           # Clean up sensitive key file
+#           rm -f server.key
+#           echo "Authentication successful"
      
-      # ============================================
-      # STEP 8: Deploy Delta Package with Tests
-      # ============================================
-      - name: Deploy delta package to Salesforce
-        if: steps.check-delta.outputs.has_changes == 'true'
-        run: |
-          echo "=========================================="
-          echo "Starting deployment to Salesforce..."
-          echo "=========================================="
+#       # ============================================
+#       # STEP 8: Deploy Delta Package with Tests
+#       # ============================================
+#       - name: Deploy delta package to Salesforce
+#         if: steps.check-delta.outputs.has_changes == 'true'
+#         run: |
+#           echo "=========================================="
+#           echo "Starting deployment to Salesforce..."
+#           echo "=========================================="
          
-          # Deploy with comprehensive options
-          sf project deploy start \
-            --source-dir changed-sources/force-app \
-            --test-level RunLocalTests \
-            --target-org orgfarm-dev \
-            --wait 30 \
-            --verbose
+#           # Deploy with comprehensive options
+#           sf project deploy start \
+#             --source-dir changed-sources/force-app \
+#             --test-level RunLocalTests \
+#             --target-org orgfarm-dev \
+#             --wait 30 \
+#             --verbose
          
-          echo "=========================================="
-          echo "Deployment completed successfully!"
-          echo "=========================================="
+#           echo "=========================================="
+#           echo "Deployment completed successfully!"
+#           echo "=========================================="
      
-      # ============================================
-      # STEP 9: Skip Deployment Message
-      # ============================================
-      - name: Skip deployment
-        if: steps.check-delta.outputs.has_changes == 'false'
-        run: |
-          echo "=========================================="
-          echo "No changes detected in force-app/"
-          echo "Skipping deployment"
-          echo "=========================================="
+#       # ============================================
+#       # STEP 9: Skip Deployment Message
+#       # ============================================
+#       - name: Skip deployment
+#         if: steps.check-delta.outputs.has_changes == 'false'
+#         run: |
+#           echo "=========================================="
+#           echo "No changes detected in force-app/"
+#           echo "Skipping deployment"
+#           echo "=========================================="
      
-      # ============================================
-      # STEP 10: Cleanup (Always Runs)
-      # ============================================
-      - name: Cleanup sensitive files
-        if: always()            # Run even if previous steps fail
-        run: |
-          # Remove any sensitive files that might have been created
-          rm -f server.key
-          echo "Cleanup completed"
+#       # ============================================
+#       # STEP 10: Cleanup (Always Runs)
+#       # ============================================
+#       - name: Cleanup sensitive files
+#         if: always()            # Run even if previous steps fail
+#         run: |
+#           # Remove any sensitive files that might have been created
+#           rm -f server.key
+#           echo "Cleanup completed"
