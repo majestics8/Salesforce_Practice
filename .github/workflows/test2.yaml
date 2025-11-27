@@ -457,14 +457,9 @@ jobs:
       - name: Authenticate to UAT
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
-          echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-          sf org login jwt \
-            --username "${{ secrets.DEPLOYMENT_USER_NAME }}" \
-            --jwt-key-file server.key \
-            --client-id "${{ secrets.CONSUMER_KEY }}" \
-            --instance-url "${{ vars.INSTANCE_URL }}" \
-            --set-default 
-          rm server.key
+          echo "${{ secrets.SFDX_AUTH_URL_UAT }}" > authfile_UAT.txt
+          sf org login sfdx-url --sfdx-url-file authfile_UAT.txt --alias UAT --set-default
+          rm authfile_UAT.txt
 
       # Validate Deployment
 
