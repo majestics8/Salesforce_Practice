@@ -346,15 +346,20 @@
 #                 sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests 
 
 
+
 name: Salesforce CI/CD to UAT Environment
 
 on:
   push:
     branches:
-      - main
       - feature
+      - qa
+      - uat
+      - main
   pull_request:
     branches:
+      - qa
+      - uat
       - main
     paths:
       - "force-app/**"
@@ -399,11 +404,11 @@ jobs:
         
   
   # 2. VALIDATION JOB FOR PULL REQUESTS
-  validate-uat:
+  validate:
     needs: [code-quality]
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
-    environment: uat
+    #environment: uat
 
     steps:
       - name: Checkout source code
@@ -424,7 +429,7 @@ jobs:
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
 
-      # Correct PR Delta (NO MORE HEAD~1 ISSUES)
+     
       - name: Create Delta for PR Validation
         id: delta_pr
         run: |
@@ -452,36 +457,61 @@ jobs:
 
       # Authenticate
       
-      - name: Authenticate to UAT
+      - name: Authenticate to Environment
+        id: auth
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
-          echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-          sf org login jwt \
-            --username "${{ secrets.DEPLOYMENT_USER_NAME }}" \
-            --jwt-key-file server.key \
-            --client-id "${{ secrets.CONSUMER_KEY }}" \
-            --instance-url "${{ vars.INSTANCE_URL }}" \
-            --set-default 
-          rm server.key
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TARGET_BRANCH="${{ github.base_ref }}"
+          else
+            RAW_BRANCH="${{ github.ref }}"
+            TARGET_BRANCH="${RAW_BRANCH#refs/heads/}"
+          fi
+        
+          echo "Authenticating based on PR target branch: $TARGET_BRANCH"
 
+          if [ "$TARGET_BRANCH" = "qa" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_QA }}"
+            ALIAS="QA"
+          elif [ "$TARGET_BRANCH" = "uat" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_UAT }}"
+            ALIAS="UAT"
+          elif [ "$TARGET_BRANCH" = "main" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
+            ALIAS="PROD"
+          else
+            echo "ERROR: Unsupported branch: ${{ github.base_ref }}"
+            exit 1
+          fi
+        
+          echo "env_alias=$ALIAS" >> $GITHUB_OUTPUT 
+          
+          echo "$AUTH_URL" > authfile.txt
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
+          rm authfile.txt
+
+          echo "Authenticated to org: $ALIAS"
       # Validate Deployment
 
-      - name: Validate Delta in UAT
+      - name: Validate Delta 
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
+          ALIAS="${{ steps.auth.outputs.env_alias }}"
+          echo "Validating in environment: $ALIAS"
+
           sf project deploy validate \
             --source-dir changed-sources/force-app \
+            --target-org "$ALIAS" \
             --test-level RunLocalTests 
 
   # 3. DEPLOY TO UAT ON MAIN BRANCH
 
-  Deploy-to-uat:
-    needs: validate-uat
+  Deploy:
+    needs: validate
     #needs: [code-quality]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
-    environment: uat
-
+  
     steps:
       - name: Checkout full repo
         uses: actions/checkout@v3
@@ -492,6 +522,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
 
@@ -499,14 +530,35 @@ jobs:
         run: |
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
+      
+      - name: Set Branch Environment
+        id: env
+        run: |
+          RAW_BRANCH="${GITHUB_REF#refs/heads/}"
+          if [[ "$RAW_BRANCH" == "qa" ]]; then
+            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_QA }}" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=QA" >> $GITHUB_OUTPUT
+            echo "DEPLOY_TAG_PREFIX=qa-deployed" >> $GITHUB_OUTPUT
+          elif [[ "$RAW_BRANCH" == "uat" ]]; then
+            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_UAT }}" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=UAT" >> $GITHUB_OUTPUT
+            echo "DEPLOY_TAG_PREFIX=uat-deployed" >> $GITHUB_OUTPUT
+          elif [[ "$RAW_BRANCH" == "main" ]]; then
+            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_PROD }}" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=PROD" >> $GITHUB_OUTPUT
+            echo "DEPLOY_TAG_PREFIX=prod-deployed" >> $GITHUB_OUTPUT
+          else
+            echo "ERROR: Unsupported branch $RAW_BRANCH"
+            exit 1
+          fi 
 
       # Determine Correct Commit Range Using Tags
       # if not tag exists FROM=$(git rev-list --max-parents=0 HEAD) this takes root commit from the head ex: A-->Root Commit B C D-->latest commit  then From Becomes commit A
       # if tags exists FROM=$(git rev-list -n 1 "$LAST_TAG") then checks this tag is related to which commit lets say it was commit A then from Becomes A
-      - name: Find last UAT deployment tag
+      - name: Find last deployment tag
         id: last_tag
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 --match "uat-deployed/*" 2>/dev/null || true)
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "${{ steps.env.outputs.DEPLOY_TAG_PREFIX}}" 2>/dev/null || true)
           if [ -z "$LAST_TAG" ]; then
             FROM=$(git rev-list --max-parents=0 HEAD)    
           else
@@ -517,7 +569,7 @@ jobs:
           echo "TO_COMMIT=HEAD" >> $GITHUB_OUTPUT
 
       # Delta for main deployment
-      - name: Create delta for UAT deployment
+      - name: Create delta for deployment
         id: delta_deploy
         run: |
           mkdir changed-sources
@@ -539,14 +591,10 @@ jobs:
       - name: Authenticate to UAT
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
-          echo "${{ secrets.JWT_SERVER_KEY }}" > server.key
-          sf org login jwt \
-            --username "${{ secrets.DEPLOYMENT_USER_NAME }}" \
-            --jwt-key-file server.key \
-            --client-id "${{ secrets.CONSUMER_KEY }}" \
-            --instance-url "${{ vars.INSTANCE_URL }}" \
-            --set-default
-          rm server.key  
+          echo "${{ steps.env.outputs.ORG_AUTH_URL }}" > authfile.txt
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "${{ steps.env.outputs.ENV_NAME }}" --set-default
+          rm authfile.txt
+          echo "Authenticated to org: ${{ steps.env.outputs.ENV_NAME }}"
 
       # Deploy Delta to UAT
       
@@ -555,6 +603,7 @@ jobs:
         run: |
           sf project deploy start \
             --source-dir changed-sources/force-app \
+            --target-org "${{ steps.env.outputs.ENV_NAME }}"
             --test-level RunLocalTests 
 
       # Tag Deployment
@@ -565,7 +614,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions Bot"
 
-          TAG="uat-deployed/${{ github.sha }}"
-          git tag -a "$TAG" -m "Deployed ${{ github.sha }} to UAT"
+          TAG="${{ steps.env.outputs.DEPLOY_TAG_PREFIX }}/${{ github.sha }}"
+          git tag -a "$TAG" -m "Deployed ${{ github.sha }} to ${{ steps.env.outputs.ENV_NAME }}"
           git push origin "$TAG"
 
