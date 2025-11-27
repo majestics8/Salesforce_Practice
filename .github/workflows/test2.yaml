@@ -351,10 +351,14 @@ name: Salesforce CI/CD to UAT Environment
 on:
   push:
     branches:
-      - main
       - feature
+      - qa
+      - uat
+      - main
   pull_request:
     branches:
+      - qa
+      - uat
       - main
     paths:
       - "force-app/**"
@@ -401,9 +405,9 @@ jobs:
   # 2. VALIDATION JOB FOR PULL REQUESTS
   validate-uat:
     needs: [code-quality]
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
-    environment: uat
+    #environment: uat
 
     steps:
       - name: Checkout source code
@@ -452,20 +456,50 @@ jobs:
 
       # Authenticate
       
-      - name: Authenticate to UAT
+      - name: Authenticate to Environment
+        id: auth
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
-          echo "${{ secrets.SFDX_AUTH_URL_UAT }}" > authfile_UAT.txt
-          sf org login sfdx-url --sfdx-url-file authfile_UAT.txt --alias UAT --set-default
-          rm authfile_UAT.txt
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TARGET_BRANCH="${{ github.base_ref }}"
+          else
+            TARGET_BRANCH="${{ github.ref#refs/heads/ }}"
+          fi
+        
+          echo "Authenticating based on PR target branch: $TARGET_BRANCH"
 
+          if [ "$TARGET_BRANCH" = "qa" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_QA }}"
+            ALIAS="QA"
+          elif [ "$TARGET_BRANCH" = "uat" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_UAT }}"
+            ALIAS="UAT"
+          elif [ "$TARGET_BRANCH" = "main" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
+            ALIAS="PROD"
+          else
+            echo "ERROR: Unsupported branch: ${{ github.base_ref }}"
+            exit 1
+          fi
+        
+          echo "env_alias=$ALIAS" >> $GITHUB_OUTPUT 
+          
+          echo "$AUTH_URL" > authfile.txt
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
+          rm authfile.txt
+
+          echo "Authenticated to org: $ALIAS"
       # Validate Deployment
 
       - name: Validate Delta in UAT
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
+          ALIAS="${{ steps.auth.outputs.env_alias }}"
+          echo "Validating in environment: $ALIAS"
+
           sf project deploy validate \
             --source-dir changed-sources/force-app \
+            --target-org "$ALIAS" \
             --test-level RunLocalTests 
 
   # 3. DEPLOY TO UAT ON MAIN BRANCH
@@ -473,7 +507,7 @@ jobs:
   Deploy-to-uat:
     needs: validate-uat
     #needs: [code-quality]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/uat'
     runs-on: ubuntu-latest
     environment: uat
 

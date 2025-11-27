@@ -46,3 +46,9 @@ $RECYCLE.BIN/
 **/__pycache__/
 **/.venv/
 **/venv/
+
+authfile.txt
+authFile.json
+SFDX-UAT.txt
+uat-auth-url.txt
+SFDX-PROD.txt
