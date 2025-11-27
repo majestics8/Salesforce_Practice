@@ -603,7 +603,7 @@ jobs:
         run: |
           sf project deploy start \
             --source-dir changed-sources/force-app \
-            --target-org "${{ steps.env.outputs.ENV_NAME }}"
+            --target-org "${{ steps.env.outputs.ENV_NAME }}"\
             --test-level RunLocalTests 
 
       # Tag Deployment
