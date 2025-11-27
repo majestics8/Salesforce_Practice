@@ -555,6 +555,7 @@ jobs:
         run: |
           sf project deploy start \
             --source-dir changed-sources/force-app \
+            --target-org "${{ steps.env.outputs.ENV_NAME }}"\
             --test-level RunLocalTests 
 
       # Tag Deployment
@@ -565,7 +566,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions Bot"
 
-          TAG="uat-deployed/${{ github.sha }}"
-          git tag -a "$TAG" -m "Deployed ${{ github.sha }} to UAT"
-          git push origin "$TAG"
+          TAG="${{ steps.env.outputs.DEPLOY_TAG_PREFIX }}/${{ github.sha }}"
+          git tag -a "$TAG" -m "Deployed ${{ github.sha }} to ${{ steps.env.outputs.ENV_NAME }}"
+          git push origin "$TAG" 
 
