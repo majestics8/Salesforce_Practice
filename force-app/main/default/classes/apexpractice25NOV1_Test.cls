@@ -10,8 +10,8 @@ public class apexpractice25NOV1_Test {
         insert new List<Account>{acc1, acc2};
 
         // Create Opportunities
-        Opportunity opp1 = new Opportunity(
-            Name = 'Big Deal 1',
+        Opportunity opp1 = new Opportunity( 
+            Name = 'Big Deal 1', 
             StageName = 'Closed Won',
             CloseDate = Date.today(),
             Amount = 15000,
@@ -20,9 +20,9 @@ public class apexpractice25NOV1_Test {
 
         Opportunity opp2 = new Opportunity(
             Name = 'Small Deal',
-            StageName = 'Closed Won',
+            StageName = 'Closed Won', 
             CloseDate = Date.today(),
-            Amount = 5000, // should NOT count
+            Amount = 5000, // should NOT 
             AccountId = acc1.Id
         );
 
