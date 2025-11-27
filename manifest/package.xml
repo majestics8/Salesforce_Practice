@@ -1,13 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
-        <members>apexpractice25NOV1_Test</members>
-        <members>apexpractice25NOV1</members>
-        <name>ApexClass</name>
-    </types>
-    <types>
-        <members>Account</members>
-        <name>ApexTrigger</name>
+        <members>Opportunity.Opportunity_Age__c</members>
+        <name>CustomField</name>
     </types>
     <version>64.0</version>
 </Package>
