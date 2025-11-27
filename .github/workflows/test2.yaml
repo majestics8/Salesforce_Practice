@@ -616,5 +616,5 @@ jobs:
 
           TAG="${{ steps.env.outputs.DEPLOY_TAG_PREFIX }}/${{ github.sha }}"
           git tag -a "$TAG" -m "Deployed ${{ github.sha }} to ${{ steps.env.outputs.ENV_NAME }}"
-          git push origin "$TAG"
+          git push origin "$TAG" 
 
