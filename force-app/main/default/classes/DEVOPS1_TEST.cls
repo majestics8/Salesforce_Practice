@@ -23,7 +23,7 @@ public class DEVOPS1_TEST {
         AccountHandler123.updateAccountRating(accs);
 		DEVOPS_APEX_CLASS1.setpremium(accs);
         mytestclass.execute();
-        mytestclass_Test.execute();
+        
            
            List<Opportunity> opp=new List<Opportunity>();
            insert opp;
