@@ -556,7 +556,7 @@ jobs:
       - name: Find last deployment tag
         id: last_tag
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 --match "${{ steps.env.outputs.DEPLOY_TAG_PREFIX}}" 2>/dev/null || true)
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "${{ steps.env.outputs.DEPLOY_TAG_PREFIX}}/*" 2>/dev/null || true)
           if [ -z "$LAST_TAG" ]; then
             FROM=$(git rev-list --max-parents=0 HEAD)    
           else
