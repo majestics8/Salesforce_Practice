@@ -19,13 +19,11 @@ public class DEVOPS1_TEST {
        public static void testing(){
         List<Account> accs = [SELECT Id, Name, AnnualRevenue, Rating FROM Account];
        // List<Contact> contacts = [SELECT Id, AccountId FROM Contact];
-       //changes are reflected 
-       //double check
-
+       //Just want to check whether the changes are reflected or not
         AccountHandler123.updateAccountRating(accs);
 		DEVOPS_APEX_CLASS1.setpremium(accs);
         mytestclass.execute();
-        mytestclass_Test.execute();
+        
            
            List<Opportunity> opp=new List<Opportunity>();
            insert opp;
