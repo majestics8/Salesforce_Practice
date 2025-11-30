@@ -9,5 +9,9 @@
         <members>Opportunity</members>
         <name>ApexTrigger</name>
     </types>
+    <types>
+        <members>Opportunity.Primary_Contact__c</members>
+        <name>CustomField</name>
+    </types>
     <version>64.0</version>
 </Package>
