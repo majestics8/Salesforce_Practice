@@ -405,7 +405,7 @@ jobs:
   # 2. VALIDATION JOB FOR PULL REQUESTS
   validate:
     needs: [code-quality]
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'))
+    if: github.event_name == 'pull_request_target' || (github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     #environment: uat
 
