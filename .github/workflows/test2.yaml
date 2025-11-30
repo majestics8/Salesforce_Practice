@@ -345,7 +345,8 @@
 #                 sf org login jwt --username ${{ secrets.DEPLOYMENT_USER_NAME }} --jwt-key-file server.key --client-id ${{ secrets.CONSUMER_KEY }} --instance-url ${{ vars.INSTANCE_URL }} --set-default 
 #                 sf project deploy start --source-dir changed-sources/force-app --test-level RunLocalTests 
 
-name: Salesforce CI/CD (QA / UAT / PROD)
+
+name: Salesforce CI/CD to UAT Environment
 
 on:
   push:
@@ -354,7 +355,7 @@ on:
       - qa
       - uat
       - main
-  pull_request_target:
+  pull_request:
     branches:
       - qa
       - uat
@@ -362,46 +363,54 @@ on:
     paths:
       - "force-app/**"
 
-env:
-  NODE_VERSION: '18'
+# vars:
+#   NODE_VERSION: "18"
+#   MIN_CODE_COVERAGE: "75"
 
 jobs:
+
+  # 1. CODE QUALITY JOB
   code-quality:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout source
+      - name: Checkout source code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '18'
 
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
 
       - name: Install PMD
         run: |
+          echo "Downloading PMD..."
           curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
           unzip pmd.zip -d pmd
+          echo "PMD extracted:"
+          ls -R pmd
 
-      - name: Run Apex PMD (best-effort)
+      - name: Run Apex PMD Analysis
         run: |
           chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
-          ./pmd/pmd-bin-7.7.0/bin/pmd check -d force-app -R rulesets/apex/quickstart.xml -f text || true
-
+          ./pmd/pmd-bin-7.7.0/bin/pmd check \
+            -d force-app \
+            -R rulesets/apex/quickstart.xml \
+            -f text || true 
+        
+  
+  # 2. VALIDATION JOB FOR PULL REQUESTS
   validate:
     needs: [code-quality]
-    if: >
-      github.event_name == 'pull_request_target'
-      || (github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    #environment: uat
 
     steps:
-      - name: Checkout full repository (all history & tags)
+      - name: Checkout source code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
@@ -409,7 +418,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '18'
 
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
@@ -419,102 +428,99 @@ jobs:
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
 
-      - name: Ensure tags & refs are present
-        run: |
-          # fetch tags and all remote refs so git describe and rev-list work reliably
-          git remote set-url origin "$(git config --get remote.origin.url)"
-          git fetch --prune --unshallow || true
-          git fetch --tags --prune origin || true
-          git show-ref --tags || true
-
+      # Correct PR Delta (NO MORE HEAD~1 ISSUES)
       - name: Create Delta for PR Validation
         id: delta_pr
         run: |
-          mkdir -p changed-sources
-          # Determine SHAs correctly for PR (pull_request_target) or push
-          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
+          mkdir changed-sources
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR SHAs
             FROM="${{ github.event.pull_request.base.sha }}"
             TO="${{ github.event.pull_request.head.sha }}"
           else
+            # PUSH SHAs
             TO=$(git rev-parse HEAD)
             FROM=$(git rev-parse HEAD~1)
           fi
 
-          echo "FROM_COMMIT=$FROM" >> $GITHUB_OUTPUT
-          echo "TO_COMMIT=$TO" >> $GITHUB_OUTPUT
+          echo "FROM_COMMIT=$FROM"
+          echo "TO_COMMIT=$TO"
 
-          # Generate delta
-          sf sgd source delta --to "$TO" --from "$FROM" --output-dir changed-sources/ --generate-delta --source-dir force-app/ || true
+          sf sgd source delta --to "$TO" --from "$FROM" --output changed-sources/ --generate-delta --source force-app/
 
-          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app 2>/dev/null)" ]; then
+          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           else
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Decide target env & set auth url
-        id: auth_info
-        run: |
-          # For PR events target branch is pull_request.base.ref
-          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
-            TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
-          else
-            RAW="${{ github.ref }}"
-            TARGET_BRANCH="${RAW#refs/heads/}"
-          fi
-          echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_OUTPUT
-
-          if [ "$TARGET_BRANCH" = "qa" ]; then
-            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_QA }}" >> $GITHUB_OUTPUT
-            echo "ENV_ALIAS=QA" >> $GITHUB_OUTPUT
-          elif [ "$TARGET_BRANCH" = "uat" ]; then
-            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_UAT }}" >> $GITHUB_OUTPUT
-            echo "ENV_ALIAS=UAT" >> $GITHUB_OUTPUT
-          elif [ "$TARGET_BRANCH" = "main" ]; then
-            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_PROD }}" >> $GITHUB_OUTPUT
-            echo "ENV_ALIAS=PROD" >> $GITHUB_OUTPUT
-          else
-            echo "ERROR=unsupported" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-      - name: Authenticate to target org (SFDX url)
+      # Authenticate
+      
+      - name: Authenticate to Environment
         id: auth
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
-          echo "${{ steps.auth_info.outputs.ORG_AUTH_URL }}" > authfile.txt
-          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "${{ steps.auth_info.outputs.ENV_ALIAS }}" --set-default
-          rm -f authfile.txt
-          echo "env_alias=${{ steps.auth_info.outputs.ENV_ALIAS }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TARGET_BRANCH="${{ github.base_ref }}"
+          else
+            RAW_BRANCH="${{ github.ref }}"
+            TARGET_BRANCH="${RAW_BRANCH#refs/heads/}"
+          fi
+        
+          echo "Authenticating based on PR target branch: $TARGET_BRANCH"
 
-      - name: Validate Delta on target org
+          if [ "$TARGET_BRANCH" = "qa" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_QA }}"
+            ALIAS="QA"
+          elif [ "$TARGET_BRANCH" = "uat" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_UAT }}"
+            ALIAS="UAT"
+          elif [ "$TARGET_BRANCH" = "main" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
+            ALIAS="PROD"
+          else
+            echo "ERROR: Unsupported branch: ${{ github.base_ref }}"
+            exit 1
+          fi
+        
+          echo "env_alias=$ALIAS" >> $GITHUB_OUTPUT 
+          
+          echo "$AUTH_URL" > authfile.txt
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
+          rm authfile.txt
+
+      # Validate Deployment
+
+      - name: Validate Delta
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
           ALIAS="${{ steps.auth.outputs.env_alias }}"
           echo "Validating in environment: $ALIAS"
-          sf project deploy validate --source-dir changed-sources/force-app --target-org "$ALIAS" --test-level RunLocalTests --verbose --json
 
-      - name: Skip validation (no changes)
-        if: steps.delta_pr.outputs.NO_CHANGES == 'true'
-        run: echo "No metadata changes detected — validation skipped."
+          sf project deploy validate \
+            --source-dir changed-sources/force-app \
+            --target-org "$ALIAS" \
+            --test-level RunLocalTests 
 
-  deploy:
-    needs: [validate]
+  # 3. DEPLOY TO UAT ON MAIN BRANCH
+
+  Deploy:
+    needs: validate
+    #needs: [code-quality]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    #environment: uat
 
     steps:
-      - name: Checkout repo (full)
+      - name: Checkout full repo
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
+      - name: Setup node
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ env.NODE_VERSION }}
-
+          node-version: '18'
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
 
@@ -522,9 +528,9 @@ jobs:
         run: |
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
-
-      - name: Set branch / env outputs
-        id: set_env
+      
+      - name: Set Branch Environment
+        id: env
         run: |
           RAW_BRANCH="${GITHUB_REF#refs/heads/}"
           if [[ "$RAW_BRANCH" == "qa" ]]; then
@@ -540,60 +546,73 @@ jobs:
             echo "ENV_NAME=PROD" >> $GITHUB_OUTPUT
             echo "DEPLOY_TAG_PREFIX=prod-deployed" >> $GITHUB_OUTPUT
           else
-            echo "ERROR=unsupported" >> $GITHUB_OUTPUT
+            echo "ERROR: Unsupported branch $RAW_BRANCH"
             exit 1
           fi
 
-      - name: Ensure tags present
-        run: |
-          git fetch --prune --unshallow || true
-          git fetch --tags --prune origin || true
-
+      # Determine Correct Commit Range Using Tags
+      # if not tag exists FROM=$(git rev-list --max-parents=0 HEAD) this takes root commit from the head ex: A-->Root Commit B C D-->latest commit  then From Becomes commit A
+      # if tags exists FROM=$(git rev-list -n 1 "$LAST_TAG") then checks this tag is related to which commit lets say it was commit A then from Becomes A
       - name: Find last deployment tag
         id: last_tag
         run: |
-          PREFIX="${{ steps.set_env.outputs.DEPLOY_TAG_PREFIX }}"
-          # make sure we have tags
-          git fetch --tags origin || true
-          LAST_TAG=$(git describe --tags --abbrev=0 --match "${PREFIX}/*" 2>/dev/null || true)
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "${{ steps.env.outputs.DEPLOY_TAG_PREFIX}}/*" 2>/dev/null || true)
           if [ -z "$LAST_TAG" ]; then
-            FROM=$(git rev-list --max-parents=0 HEAD)
+            FROM=$(git rev-list --max-parents=0 HEAD)    
           else
             FROM=$(git rev-list -n 1 "$LAST_TAG")
           fi
-          echo "LAST_TAG=$LAST_TAG" >> $GITHUB_OUTPUT
+
           echo "FROM_COMMIT=$FROM" >> $GITHUB_OUTPUT
           echo "TO_COMMIT=HEAD" >> $GITHUB_OUTPUT
 
+      # Delta for main deployment
       - name: Create delta for deployment
         id: delta_deploy
         run: |
-          mkdir -p changed-sources
-          sf sgd source delta --from "${{ steps.last_tag.outputs.FROM_COMMIT }}" --to "HEAD" --output-dir changed-sources/ --generate-delta --source-dir force-app/ || true
-          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app 2>/dev/null)" ]; then
+          mkdir changed-sources
+
+          sf sgd source delta \
+            --from "${{ steps.last_tag.outputs.FROM_COMMIT }}" \
+            --to "HEAD" \
+            --output changed-sources/ \
+            --generate-delta \
+            --source force-app/ 
+
+          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           else
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Authenticate to target org (SFDX url)
+      # Authenticate
+      - name: Authenticate to UAT
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
-          echo "${{ steps.set_env.outputs.ORG_AUTH_URL }}" > authfile.txt
-          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "${{ steps.set_env.outputs.ENV_NAME }}" --set-default
-          rm -f authfile.txt
-          echo "Authenticated to org: ${{ steps.set_env.outputs.ENV_NAME }}"
+          echo "${{ steps.env.outputs.ORG_AUTH_URL }}" > authfile.txt
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "${{ steps.env.outputs.ENV_NAME }}" --set-default
+          rm authfile.txt
+          echo "Authenticated to org: ${{ steps.env.outputs.ENV_NAME }}"  
 
-      - name: Deploy delta to target org
+      # Deploy Delta to UAT
+      
+      - name: Deploy to UAT
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
-          sf project deploy start --source-dir changed-sources/force-app --target-org "${{ steps.set_env.outputs.ENV_NAME }}" --test-level RunLocalTests --wait 60
+          sf project deploy start \
+            --source-dir changed-sources/force-app \
+            --target-org "${{ steps.env.outputs.ENV_NAME }}"\
+            --test-level RunLocalTests 
 
+      # Tag Deployment
+      
       - name: Tag deployment
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions Bot"
-          TAG="${{ steps.set_env.outputs.DEPLOY_TAG_PREFIX }}/${{ github.sha }}"
-          git tag -a "$TAG" -m "Deployed ${{ github.sha }} to ${{ steps.set_env.outputs.ENV_NAME }}"
-          git push origin "$TAG"
+
+          TAG="${{ steps.env.outputs.DEPLOY_TAG_PREFIX }}/${{ github.sha }}"
+          git tag -a "$TAG" -m "Deployed ${{ github.sha }} to ${{ steps.env.outputs.ENV_NAME }}"
+          git push origin "$TAG" 
+
