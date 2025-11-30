@@ -355,7 +355,7 @@ on:
       - qa
       - uat
       - main
-  pull_request_target:
+  pull_request:
     branches:
       - qa
       - uat
