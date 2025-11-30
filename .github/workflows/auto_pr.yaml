@@ -1,0 +1,63 @@
+name: Auto Promote Feature Branch
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - qa
+      - uat
+      - main
+
+jobs:
+  promote:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Get PR info
+      id: info
+      run: |
+        SOURCE="${{ github.event.pull_request.head.ref }}"
+        TARGET="${{ github.event.pull_request.base.ref }}"
+
+        echo "SOURCE=$SOURCE"  >> $GITHUB_OUTPUT
+        echo "TARGET=$TARGET"  >> $GITHUB_OUTPUT
+
+        # HEAD must always be "feature"
+        if [[ "$SOURCE" != feature* ]]; then
+          echo "Not a feature branch — skipping"
+          echo "NEXT=" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Decide next target
+        if [ "$TARGET" = "qa" ]; then
+          NEXT="uat"
+        elif [ "$TARGET" = "uat" ]; then
+          NEXT="main"
+        else
+          NEXT=""
+        fi
+
+        echo "NEXT=$NEXT" >> $GITHUB_OUTPUT
+
+    - name: Create next PR
+      if: steps.info.outputs.NEXT != ''
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SOURCE: ${{ steps.info.outputs.SOURCE }}
+        TARGET: ${{ steps.info.outputs.TARGET }}
+        NEXT: ${{ steps.info.outputs.NEXT }}
+      run: |
+        echo "Creating PR: ${SOURCE} → ${NEXT}"
+
+        gh pr create \
+          --title "Auto Promotion: ${SOURCE} → ${NEXT}" \
+          --body "This PR was automatically created after merging ${SOURCE} into ${TARGET}." \
+          --base "${NEXT}" \
+          --head "${SOURCE}" \
+          || echo "PR already exists, skipping..."
+
