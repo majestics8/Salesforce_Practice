@@ -433,7 +433,7 @@ jobs:
         id: delta_pr
         run: |
           mkdir changed-sources
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
             # PR SHAs
             FROM="${{ github.event.pull_request.base.sha }}"
             TO="${{ github.event.pull_request.head.sha }}"
@@ -460,8 +460,8 @@ jobs:
         id: auth
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            TARGET_BRANCH="${{ github.base_ref }}"
+          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
+            TARGET_BRANCH="${{ github.event.pull_request.base_ref }}"
           else
             RAW_BRANCH="${{ github.ref }}"
             TARGET_BRANCH="${RAW_BRANCH#refs/heads/}"
