@@ -6,7 +6,7 @@ private class apexpractice29NOV1_ExistingOCR_Test {
         Contact c = new Contact(LastName = 'TestContact');
         insert c;
 
-        // Create an opportunity (no primary initially)
+        // Create an opportunity   (no primary initially)
         Opportunity opp = new Opportunity(
             Name = 'Test Opp',
             StageName = 'Prospecting',
