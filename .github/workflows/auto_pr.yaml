@@ -60,3 +60,16 @@ jobs:
           --head "${SOURCE}" \
           || echo "PR already exists, skipping..."
 
+jobs:
+  Validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: create repo on virtual machine
+        uses: actions/checkout@v3
+
+      - name: Node setup
+        uses: actions/node-setup@v3
+        with
+        
+      
