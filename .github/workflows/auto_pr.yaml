@@ -69,6 +69,10 @@ jobs:
       - name: create repo on virtual machine
         uses: actions/checkout@v3
 
+      - name: Fetch full git history
+        run: |
+          git fetch --unshallow || git fetch --all
+
       - name: Node setup
         uses: actions/setup-node@v3
         with:
