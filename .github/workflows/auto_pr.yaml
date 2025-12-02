@@ -1,97 +1,101 @@
 name: Auto Promote Feature Branch
-'on':
+
+on:
   pull_request:
     branches:
       - qa
       - uat
       - main
+
 jobs:
   promote:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Get PR info
-        id: info
-        run: |
-          SOURCE="${{ github.event.pull_request.head.ref }}"
-          TARGET="${{ github.event.pull_request.base.ref }}"
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-          echo "SOURCE=$SOURCE"  >> $GITHUB_OUTPUT
-          echo "TARGET=$TARGET"  >> $GITHUB_OUTPUT
+    - name: Get PR info
+      id: info
+      run: |
+        SOURCE="${{ github.event.pull_request.head.ref }}"
+        TARGET="${{ github.event.pull_request.base.ref }}"
 
-          # HEAD must always be "feature"
-          if [[ "$SOURCE" != feature* ]]; then
-            echo "Not a feature branch — skipping"
-            echo "NEXT=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+        echo "SOURCE=$SOURCE"  >> $GITHUB_OUTPUT
+        echo "TARGET=$TARGET"  >> $GITHUB_OUTPUT
 
-          # Decide next target
-          if [ "$TARGET" = "qa" ]; then
-            NEXT="uat"
-          elif [ "$TARGET" = "uat" ]; then
-            NEXT="main"
-          else
-            NEXT=""
-          fi
+        # HEAD must always be "feature"
+        if [[ "$SOURCE" != feature* ]]; then
+          echo "Not a feature branch — skipping"
+          echo "NEXT=" >> $GITHUB_OUTPUT
+          exit 0
+        fi
 
-          echo "NEXT=$NEXT" >> $GITHUB_OUTPUT
-      - name: Create next PR
-        if: steps.info.outputs.NEXT != ''
-        env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-          SOURCE: '${{ steps.info.outputs.SOURCE }}'
-          TARGET: '${{ steps.info.outputs.TARGET }}'
-          NEXT: '${{ steps.info.outputs.NEXT }}'
-        run: |
-          echo "Creating PR: ${SOURCE} → ${NEXT}"
+        # Decide next target
+        if [ "$TARGET" = "qa" ]; then
+          NEXT="uat"
+        elif [ "$TARGET" = "uat" ]; then
+          NEXT="main"
+        else
+          NEXT=""
+        fi
 
-          gh pr create \
-            --title "Auto Promotion: ${SOURCE} → ${NEXT}" \
-            --body "This PR was automatically created after merging ${SOURCE} into ${TARGET}." \
-            --base "${NEXT}" \
-            --head "${SOURCE}" \
-            || echo "PR already exists, skipping..."
+        echo "NEXT=$NEXT" >> $GITHUB_OUTPUT
+
+    - name: Create next PR
+      if: steps.info.outputs.NEXT != ''
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SOURCE: ${{ steps.info.outputs.SOURCE }}
+        TARGET: ${{ steps.info.outputs.TARGET }}
+        NEXT: ${{ steps.info.outputs.NEXT }}
+      run: |
+        echo "Creating PR: ${SOURCE} → ${NEXT}"
+
+        gh pr create \
+          --title "Auto Promotion: ${SOURCE} → ${NEXT}" \
+          --body "This PR was automatically created after merging ${SOURCE} into ${TARGET}." \
+          --base "${NEXT}" \
+          --head "${SOURCE}" \
+          || echo "PR already exists, skipping..."
+
   Validation:
     runs-on: ubuntu-latest
+
     steps:
       - name: create repo on virtual machine
         uses: actions/checkout@v3
+
       - name: Node setup
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
+
       - name: Install PMD to scan apex code
-        run: >
+        run: |
           echo "Downloading PMD..."
-
-          curl -L -o pmd.zip
-          https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
-
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
           unzip pmd.zip -d pmd
-
           echo "PMD extracted:"
-
           ls -R pmd
+
       - name: Delta plugins download
         run: |
           echo Y | sf plugins install sfdx-git-delta
           sf plugins
+
       - name: creating delta changes for validation
         id: delta
-        run: >
+        run: |
           SRC_COMMIT="${{ github.event.pull_request.head.sha }}"
-
           TGT_COMMIT="${{ github.event.pull_request.base.sha }}"
-
           TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
 
-
-          if[ -z "$SRC_COMMIT" ] || [ -z "$TGT_COMMIT" ]; then
+          if [ -z "$SRC_COMMIT" ] || [ -z "$TGT_COMMIT" ]; then
             echo "PR commit variables not found. Falling back to merge-base method."
             BRANCH_NAME="${TARGET_BRANCH#refs/heads/}"
 
@@ -105,29 +109,19 @@ jobs:
             FROM_COMMIT=$TGT_COMMIT
             TO_COMMIT=$SRC_COMMIT
           fi
-
-
+         
           echo "Using FROM_COMMIT=$FROM_COMMIT TO_COMMIT=$TO_COMMIT"
 
-
           rm -rf delta
-
           mkdir -p delta
 
-
           echo "Running delta creation command"
-
-          sf sgd source delta --to "$TO_COMMIT" --from "$FROM_COMMIT" --output
-          delta/ --generate-delta --source force-app/main/default
-
+          sf sgd source delta --to "$TO_COMMIT" --from "$FROM_COMMIT" --output delta/ --generate-delta --source force-app/main/default
 
           echo "Delta structure:"
-
           tree delta || ls -R delta
-
-
+        
           echo "--- Generated package.xml ---"
-
           if [ -f delta/package/package.xml ]; then
             cat delta/package/package.xml
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
@@ -135,6 +129,7 @@ jobs:
             echo "No package.xml found. Probably no deployable changes."
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           fi
+
       - name: Run Pmd Scan For Generated Delta
         run: |
           chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
@@ -146,12 +141,10 @@ jobs:
       - name: Authenticate to Environment
         id: auth
         if: steps.delta.outputs.NO_CHANGES == 'false'
-        run: >
+        run: |
           TARGET_BRANCH= "${{ github.event.pull_request.base.ref }}"
-
-
+        
           echo "Authenticating based on PR target branch: $TARGET_BRANCH"
-
 
           if [ "$TARGET_BRANCH" = "qa" ]; then
             AUTH_URL="${{ secrets.SFDX_AUTH_URL_QA }}"
@@ -166,17 +159,15 @@ jobs:
             echo "ERROR: Unsupported branch: ${{ github.base_ref }}"
             exit 1
           fi
-
-
+        
           echo "env_alias=$ALIAS" >> $GITHUB_OUTPUT 
-
-
+          
           echo "$AUTH_URL" > authfile.txt
-
-          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS"
-          --set-default
-
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
           rm authfile.txt
+
+      # Validate Deployment
+
       - name: Validate Delta
         if: steps.delta_pr.outputs.NO_CHANGES == 'false'
         run: |
@@ -187,3 +178,9 @@ jobs:
             --source-dir delta/force-app \
             --target-org "$ALIAS" \
             --test-level RunLocalTests
+        
+
+        
+
+         
+          
