@@ -6,7 +6,8 @@ private class apexpractice29NOV1_ExistingOCR_Test {
         Contact c = new Contact(LastName = 'TestContact');
         insert c;
 
-        // Create an opportunity   (no primary initially)
+        // Create an opportunity (no primary initially)
+        //hrllo
         Opportunity opp = new Opportunity(
             Name = 'Test Opp',
             StageName = 'Prospecting',
@@ -18,7 +19,7 @@ private class apexpractice29NOV1_ExistingOCR_Test {
         OpportunityContactRole existingOcr = new OpportunityContactRole(
             OpportunityId = opp.Id,
             ContactId = c.Id,
-            Role = 'Influencer', // some non Decision Maker role to ensure update happens
+            Role = 'Influencer', //some non Decision Maker role to ensure update happens
             IsPrimary = false
         );
         insert existingOcr;
@@ -43,4 +44,4 @@ private class apexpractice29NOV1_ExistingOCR_Test {
         System.assertEquals(true, ocrAfter.IsPrimary, 'Existing OCR should be marked primary');
         System.assertEquals('Decision Maker', ocrAfter.Role, 'Role must be updated to Decision Maker');
     }
-}
+} // code runs
