@@ -447,7 +447,6 @@ jobs:
           echo "TO_COMMIT=$TO"
 
           sf sgd source delta --to "$TO" --from "$FROM" --output changed-sources/ --generate-delta --source force-app/
-          ls -R 
           if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           else
