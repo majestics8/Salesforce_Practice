@@ -2,6 +2,8 @@ name: Auto Promote Feature Branch
 
 on:
   pull_request:
+    types:
+      - closed
     branches:
       - qa
       - uat
@@ -161,7 +163,7 @@ jobs:
             AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
             ALIAS="PROD"
           else
-            echo "ERROR: Unsupported branch: ${{ github.base_ref }}"
+            echo "ERROR: Unsupported branch: ${{ github.event.pull_request.base.ref }}"
             exit 1
           fi
         
@@ -174,7 +176,7 @@ jobs:
       # Validate Deployment
 
       - name: Validate Delta
-        if: steps.delta_pr.outputs.NO_CHANGES == 'false'
+        if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
           ALIAS="${{ steps.auth.outputs.env_alias }}"
           echo "Validating in environment: $ALIAS"
