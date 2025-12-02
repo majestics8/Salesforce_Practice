@@ -148,7 +148,7 @@ jobs:
         id: auth
         if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
-          TARGET_BRANCH= "${{ github.event.pull_request.base.ref }}"
+          TARGET_BRANCH= "${{ github.base_ref }}"
         
           echo "Authenticating based on PR target branch: $TARGET_BRANCH"
 
