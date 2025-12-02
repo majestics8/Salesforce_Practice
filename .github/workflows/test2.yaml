@@ -463,8 +463,7 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             TARGET_BRANCH="${{ github.base_ref }}"
           else
-            RAW_BRANCH="${{ github.ref }}"
-            TARGET_BRANCH="${RAW_BRANCH#refs/heads/}"
+             q
           fi
         
           echo "Authenticating based on PR target branch: $TARGET_BRANCH"
