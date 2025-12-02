@@ -148,8 +148,7 @@ jobs:
         id: auth
         if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
-          BRANCH_NAME= "${{ github.event.pull_request.base.ref }}"
-          TARGET_BRANCH="${BRANCH_NAME#refs/heads/}"
+          TARGET_BRANCH= "${{ github.event.pull_request.base.ref }}"
           echo "Authenticating based on PR target branch: $TARGET_BRANCH"
 
           if [ "$TARGET_BRANCH" = "qa" ]; then
