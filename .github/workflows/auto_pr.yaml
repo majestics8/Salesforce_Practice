@@ -142,7 +142,7 @@ jobs:
           tree delta || ls -R delta
         
           echo "--- Generated package.xml ---"
-          if [ -f delta/package/package.xml ]; then
+          if [ -f delta/package/package.xml && -f delta/force-app ]; then
             cat delta/package/package.xml
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           else
