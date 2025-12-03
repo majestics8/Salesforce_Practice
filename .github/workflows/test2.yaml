@@ -370,36 +370,36 @@ on:
 jobs:
 
   # 1. CODE QUALITY JOB
-  code-quality:
-    runs-on: ubuntu-latest
+  # code-quality:
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout source code
-        uses: actions/checkout@v3
+  #   steps:
+  #     - name: Checkout source code
+  #       uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '18'
 
-      - name: Install Salesforce CLI
-        run: npm install @salesforce/cli --global
+  #     - name: Install Salesforce CLI
+  #       run: npm install @salesforce/cli --global
 
-      - name: Install PMD
-        run: |
-          echo "Downloading PMD..."
-          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
-          unzip pmd.zip -d pmd
-          echo "PMD extracted:"
-          ls -R pmd
+  #     - name: Install PMD
+  #       run: |
+  #         echo "Downloading PMD..."
+  #         curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
+  #         unzip pmd.zip -d pmd
+  #         echo "PMD extracted:"
+  #         ls -R pmd
 
-      - name: Run Apex PMD Analysis
-        run: |
-          chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
-          ./pmd/pmd-bin-7.7.0/bin/pmd check \
-            -d force-app \
-            -R rulesets/apex/quickstart.xml \
-            -f text || true 
+  #     - name: Run Apex PMD Analysis
+  #       run: |
+  #         chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
+  #         ./pmd/pmd-bin-7.7.0/bin/pmd check \
+  #           -d force-app \
+  #           -R rulesets/apex/quickstart.xml \
+  #           -f text || true 
         
   
   # 2. VALIDATION JOB FOR PULL REQUESTS
@@ -415,6 +415,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch full git history
+        run: |
+          git fetch --unshallow || git fetch --all
+          
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -422,6 +426,14 @@ jobs:
 
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
+
+      - name: Install PMD to scan apex code
+        run: |
+          echo "Downloading PMD..."
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
+          unzip pmd.zip -d pmd
+          echo "PMD extracted:"
+          ls -R pmd
 
       - name: Install sfdx-git-delta
         run: |
@@ -432,33 +444,66 @@ jobs:
       - name: Create Delta for PR Validation
         id: delta_pr
         run: |
-          mkdir changed-sources
+          mkdir delta
           if [ "${{ github.event_name }}" = "pull_request" ]; then
+
             # PR SHAs
-            FROM="${{ github.event.pull_request.base.sha }}"
-            TO="${{ github.event.pull_request.head.sha }}"
+            SRC_COMMIT="${{ github.event.pull_request.head.sha }}"
+            TGT_COMMIT="${{ github.event.pull_request.base.sha }}"
+            TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+            
           else
             # PUSH SHAs
-            TO=$(git rev-parse HEAD)
-            FROM=$(git rev-parse HEAD~1)
+            SRC_COMMIT=$(git rev-parse HEAD)
+            TGT_COMMIT=$(git rev-parse HEAD~1)
           fi
 
-          echo "FROM_COMMIT=$FROM"
-          echo "TO_COMMIT=$TO"
+          if [ -z "$SRC_COMMIT" ] || [ -z "$TGT_COMMIT" ]; then
+            echo "PR commit variables not found. Falling back to merge-base method."
+            BRANCH_NAME="${TARGET_BRANCH#refs/heads/}"
 
-          sf sgd source delta --to "$TO" --from "$FROM" --output changed-sources/ --generate-delta --source force-app/
+            echo "Fetching remote branch: $BRANCH_NAME"
+            git fetch origin "$BRANCH_NAME:$BRANCH_NAME"
 
-          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
+            MERGE_BASE=$(git merge-base HEAD origin/$BRANCH_NAME)
+            FROM_COMMIT=$MERGE_BASE
+            TO_COMMIT=HEAD
+          else
+            FROM_COMMIT=$TGT_COMMIT
+            TO_COMMIT=$SRC_COMMIT
+          fi
+
+          rm -rf delta
+          mkdir delta
+
+          echo "Running delta creation command"
+          sf sgd source delta --to "$TO_COMMIT" --from "$FROM_COMMIT" --output delta/ --generate-delta --source force-app/main/default
+          
+          echo "Delta structure:"
+          tree delta || ls -R delta
+
+          if [ ! -d "delta/force-app" ] || [ -z "$(ls -A delta/force-app)" ]; then
+            cat delta/package/package.xml
+            cat delta/force-app/main/default
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           else
+            echo "No package.xml found. Probably no deployable changes."
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           fi
+      
+      - name: Run Pmd Scan For Generated Delta
+        run: |
+          chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
+          ./pmd/pmd-bin-7.7.0/bin/pmd check \
+            -d delta \
+            -R rulesets/apex/quickstart.xml \
+            -f text || true 
 
       # Authenticate
       
       - name: Authenticate to Environment
         id: auth
-        if: steps.delta_pr.outputs.NO_CHANGES == 'false'
+        if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             TARGET_BRANCH="${{ github.base_ref }}"
@@ -498,7 +543,7 @@ jobs:
           echo "Validating in environment: $ALIAS"
 
           sf project deploy validate \
-            --source-dir changed-sources/force-app \
+            --source-dir delta/force-app \
             --target-org "$ALIAS" \
             --test-level RunLocalTests 
 
@@ -521,6 +566,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
+
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
 
@@ -558,7 +604,15 @@ jobs:
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 --match "${{ steps.env.outputs.DEPLOY_TAG_PREFIX}}/*" 2>/dev/null || true)
           if [ -z "$LAST_TAG" ]; then
-            FROM=$(git rev-list --max-parents=0 HEAD)    
+               
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+
+            echo "Fetching remote branch: $BRANCH_NAME"
+            git fetch origin "$BRANCH_NAME:$BRANCH_NAME"
+
+            MERGE_BASE=$(git merge-base HEAD origin/$BRANCH_NAME)
+            FROM=$MERGE_BASE
+
           else
             FROM=$(git rev-list -n 1 "$LAST_TAG")
           fi
@@ -570,12 +624,12 @@ jobs:
       - name: Create delta for deployment
         id: delta_deploy
         run: |
-          mkdir changed-sources
+          mkdir delta
 
           sf sgd source delta \
             --from "${{ steps.last_tag.outputs.FROM_COMMIT }}" \
             --to "HEAD" \
-            --output changed-sources/ \
+            --output delta/ \
             --generate-delta \
             --source force-app/ 
 
@@ -586,7 +640,7 @@ jobs:
           fi
 
       # Authenticate
-      - name: Authenticate to UAT
+      - name: Authentication
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
           echo "${{ steps.env.outputs.ORG_AUTH_URL }}" > authfile.txt
@@ -596,7 +650,7 @@ jobs:
 
       # Deploy Delta to UAT
       
-      - name: Deploy to UAT
+      - name: Deployment
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
           sf project deploy start \
