@@ -404,7 +404,6 @@ jobs:
   
   # 2. VALIDATION JOB FOR PULL REQUESTS
   validate:
-    needs: [code-quality]
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     #environment: uat
@@ -442,7 +441,7 @@ jobs:
 
       # Correct PR Delta (NO MORE HEAD~1 ISSUES)
       - name: Create Delta for PR Validation
-        id: delta_pr
+        id: delta
         run: |
           mkdir delta
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -483,11 +482,11 @@ jobs:
           tree delta || ls -R delta
 
           if [ ! -d "delta/force-app" ] || [ -z "$(ls -A delta/force-app)" ]; then
-            cat delta/package/package.xml
-            cat delta/force-app/main/default
+            echo "No package.xml found. Probably no deployable changes."
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           else
-            echo "No package.xml found. Probably no deployable changes."
+            cat delta/package/package.xml
+            cat delta/force-app/main/default
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           fi
       
@@ -537,7 +536,7 @@ jobs:
       # Validate Deployment
 
       - name: Validate Delta
-        if: steps.delta_pr.outputs.NO_CHANGES == 'false'
+        if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
           ALIAS="${{ steps.auth.outputs.env_alias }}"
           echo "Validating in environment: $ALIAS"
@@ -633,7 +632,7 @@ jobs:
             --generate-delta \
             --source force-app/ 
 
-          if [ ! -d "changed-sources/force-app" ] || [ -z "$(ls -A changed-sources/force-app)" ]; then
+          if [ ! -d "delta/force-app" ] || [ -z "$(ls -A delta/force-app)" ]; then
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           else
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
@@ -654,7 +653,7 @@ jobs:
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
           sf project deploy start \
-            --source-dir changed-sources/force-app \
+            --source-dir delta/force-app \
             --target-org "${{ steps.env.outputs.ENV_NAME }}"\
             --test-level RunLocalTests 
 
