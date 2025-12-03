@@ -486,8 +486,11 @@ jobs:
             echo "No package.xml found. Probably no deployable changes."
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           else
+            echo "--package.xml content--"
             cat delta/package/package.xml
-            cat delta/force-app/main/default
+            
+            echo "--force-app folder content--"
+            ls -R delta/force-app
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           fi
       
