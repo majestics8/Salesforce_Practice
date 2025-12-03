@@ -443,7 +443,8 @@ jobs:
       - name: Create Delta for PR Validation
         id: delta
         run: |
-          mkdir delta
+          set -e
+
           if [ "${{ github.event_name }}" = "pull_request" ]; then
 
             # PR SHAs
@@ -455,16 +456,16 @@ jobs:
             # PUSH SHAs
             SRC_COMMIT=$(git rev-parse HEAD)
             TGT_COMMIT=$(git rev-parse HEAD~1)
+            TARGET_BRANCH="${GITHUB_REF#refs/heads/}"
           fi
 
           if [ -z "$SRC_COMMIT" ] || [ -z "$TGT_COMMIT" ]; then
             echo "PR commit variables not found. Falling back to merge-base method."
-            BRANCH_NAME="${TARGET_BRANCH#refs/heads/}"
 
-            echo "Fetching remote branch: $BRANCH_NAME"
-            git fetch origin "$BRANCH_NAME:$BRANCH_NAME"
+            echo "Fetching remote branch: $TARGET_BRANCH"
+            git fetch origin "$TARGET_BRANCH:$TARGET_BRANCH"
 
-            MERGE_BASE=$(git merge-base HEAD origin/$BRANCH_NAME)
+            MERGE_BASE=$(git merge-base HEAD origin/$TARGET_BRANCH)
             FROM_COMMIT=$MERGE_BASE
             TO_COMMIT=HEAD
           else
