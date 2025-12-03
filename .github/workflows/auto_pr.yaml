@@ -2,7 +2,8 @@ name: Auto Promote Feature Branch
 
 on:
   pull_request:
-    types: [closed]
+    types:
+      - closed
     branches:
       - qa
       - uat
@@ -16,6 +17,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
 
     - name: Get PR info
       id: info
@@ -61,3 +64,144 @@ jobs:
           --head "${SOURCE}" \
           || echo "PR already exists, skipping..."
 
+  Validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: create repo on virtual machine
+        uses: actions/checkout@v3
+
+      - name: Fetch full git history
+        run: |
+          git fetch --unshallow || git fetch --all
+
+      - name: Node setup
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Salesforce CLI
+        run: npm install @salesforce/cli --global
+
+      - name: Install PMD to scan apex code
+        run: |
+          echo "Downloading PMD..."
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
+          unzip pmd.zip -d pmd
+          echo "PMD extracted:"
+          ls -R pmd
+
+      - name: Delta plugins download
+        run: |
+          echo Y | sf plugins install sfdx-git-delta
+          sf plugins
+
+      - name: creating delta changes for validation
+        id: delta
+        run: |
+          SRC_BRANCH="${{ github.event.pull_request.head.ref }}"
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          
+          echo "SOURCE BRANCH = $SRC_BRANCH"
+          echo "TARGET BRANCH = $TARGET_BRANCH"
+
+          if [ "$TARGET_BRANCH" = "qa" ]; then
+            DELTA_TARGET="uat"
+          elif [ "$TARGET_BRANCH" = "uat" ]; then
+            DELTA_TARGET="main"
+          else
+            DELTA_TARGET="$TARGET_BRANCH"
+          fi
+
+          echo "Delta will be generated against: $DELTA_TARGET"
+          
+          echo "Fetching remote branch: $DELTA_TARGET"
+          git fetch origin "$DELTA_TARGET:$DELTA_TARGET"
+
+          SRC_COMMIT="${{ github.event.pull_request.head.sha }}"
+          TGT_COMMIT=$(git rev-parse $DELTA_TARGET)
+
+          if ! git cat-file -e $TGT_COMMIT^{commit}; then
+            echo "Falling back to merge-base method"
+
+            MERGE_BASE=$(git merge-base $SRC_BRANCH $DELTA_TARGET)
+            FROM_COMMIT=$MERGE_BASE
+            TO_COMMIT=$(git rev-parse $SRC_BRANCH)
+          else
+            FROM_COMMIT=$TGT_COMMIT
+            TO_COMMIT=$SRC_COMMIT
+          fi
+         
+          echo "Using FROM_COMMIT=$FROM_COMMIT TO_COMMIT=$TO_COMMIT"
+
+          rm -rf delta
+          mkdir -p delta
+
+          echo "Running delta creation command"
+          sf sgd source delta --to "$TO_COMMIT" --from "$FROM_COMMIT" --output delta/ --generate-delta --source force-app/main/default
+
+          echo "Delta structure:"
+          tree delta || ls -R delta
+        
+          echo "--- Generated package.xml ---"
+          if [ -f delta/package/package.xml ]; then
+            cat delta/package/package.xml
+            echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
+          else
+            echo "No package.xml found. Probably no deployable changes."
+            echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Pmd Scan For Generated Delta
+        run: |
+          chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
+          ./pmd/pmd-bin-7.7.0/bin/pmd check \
+            -d delta \
+            -R rulesets/apex/quickstart.xml \
+            -f text || true 
+             
+      - name: Authenticate to Environment
+        id: auth
+        if: steps.delta.outputs.NO_CHANGES == 'false'
+        run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          echo "Authenticating based on PR target branch: $TARGET_BRANCH"
+
+          if [ "$TARGET_BRANCH" = "qa" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_UAT }}"
+            ALIAS="UAT"
+          elif [ "$TARGET_BRANCH" = "uat" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
+            ALIAS="PROD"
+          elif [ "$TARGET_BRANCH" = "main" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
+            ALIAS="PROD"
+          else
+            echo "ERROR: Unsupported branch: ${{ github.event.pull_request.base.ref }}"
+            exit 1
+          fi
+        
+          echo "env_alias=$ALIAS" >> $GITHUB_OUTPUT 
+          
+          echo "$AUTH_URL" > authfile.txt
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
+          rm authfile.txt
+
+      # Validate Deployment
+
+      - name: Validate Delta
+        if: steps.delta.outputs.NO_CHANGES == 'false'
+        run: |
+          ALIAS="${{ steps.auth.outputs.env_alias }}"
+          echo "Validating in environment: $ALIAS"
+
+          sf project deploy validate \
+            --source-dir delta/force-app \
+            --target-org "$ALIAS" \
+            --test-level RunLocalTests
+        
+
+        
+
+         
+          
