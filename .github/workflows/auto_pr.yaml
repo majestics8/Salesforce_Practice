@@ -7,7 +7,6 @@ on:
     branches:
       - qa
       - uat
-      - main
 
 jobs:
   promote:
