@@ -99,20 +99,34 @@ jobs:
       - name: creating delta changes for validation
         id: delta
         run: |
-          SRC_COMMIT="${{ github.event.pull_request.head.sha }}"
-          TGT_COMMIT="${{ github.event.pull_request.base.sha }}"
+          SRC_BRANCH="${{ github.event.pull_request.head.ref }}"
           TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          
+          echo "SOURCE BRANCH = $SRC_BRANCH"
+          echo "TARGET BRANCH = $TARGET_BRANCH"
 
-          if [ -z "$SRC_COMMIT" ] || [ -z "$TGT_COMMIT" ]; then
-            echo "PR commit variables not found. Falling back to merge-base method."
-            BRANCH_NAME="${TARGET_BRANCH#refs/heads/}"
+          if [ "$TARGET_BRANCH" = "qa" ]; then
+            DELTA_TARGET="uat"
+          elif [ "$TARGET_BRANCH" = "uat" ]; then
+            DELTA_TARGET="main"
+          else
+            DELTA_TARGET="$TARGET_BRANCH"
+          fi
 
-            echo "Fetching remote branch: $BRANCH_NAME"
-            git fetch origin "$BRANCH_NAME:$BRANCH_NAME"
+          echo "Delta will be generated against: $DELTA_TARGET"
+          
+          echo "Fetching remote branch: $DELTA_TARGET"
+          git fetch origin "$DELTA_TARGET:$DELTA_TARGET"
 
-            MERGE_BASE=$(git merge-base HEAD origin/$BRANCH_NAME)
+          SRC_COMMIT="${{ github.event.pull_request.head.sha }}"
+          TGT_COMMIT=$(git rev-parse $DELTA_TARGET)
+
+          if ! git cat-file -e $TGT_COMMIT^{commit}; then
+            echo "Falling back to merge-base method"
+
+            MERGE_BASE=$(git merge-base $SRC_BRANCH $DELTA_TARGET)
             FROM_COMMIT=$MERGE_BASE
-            TO_COMMIT=HEAD
+            TO_COMMIT=$(git rev-parse $SRC_BRANCH)
           else
             FROM_COMMIT=$TGT_COMMIT
             TO_COMMIT=$SRC_COMMIT
@@ -154,11 +168,11 @@ jobs:
           echo "Authenticating based on PR target branch: $TARGET_BRANCH"
 
           if [ "$TARGET_BRANCH" = "qa" ]; then
-            AUTH_URL="${{ secrets.SFDX_AUTH_URL_QA }}"
-            ALIAS="QA"
-          elif [ "$TARGET_BRANCH" = "uat" ]; then
             AUTH_URL="${{ secrets.SFDX_AUTH_URL_UAT }}"
             ALIAS="UAT"
+          elif [ "$TARGET_BRANCH" = "uat" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
+            ALIAS="PROD"
           elif [ "$TARGET_BRANCH" = "main" ]; then
             AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
             ALIAS="PROD"
