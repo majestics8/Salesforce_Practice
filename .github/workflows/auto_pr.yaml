@@ -7,7 +7,6 @@ on:
     branches:
       - qa
       - uat
-      - main
 
 jobs:
   promote:
@@ -142,11 +141,11 @@ jobs:
           tree delta || ls -R delta
         
           echo "--- Generated package.xml ---"
-          if [ -f delta/package/package.xml && -f delta/force-app ]; then
+          if [[ -f delta/package/package.xml  && -d "delta/force-app" ]]; then
             cat delta/package/package.xml
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
           else
-            echo "No package.xml found. Probably no deployable changes."
+            echo "Either No package.xml or force-app found. Probably no deployable changes."
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           fi
 
