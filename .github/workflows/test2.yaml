@@ -540,14 +540,56 @@ jobs:
           rm authfile.txt
 
       # Fetch All Apex Test Classes
+      # Fetch All Apex Test Classes
       - name: Extract all Test Classes
         id: tests
         run: |
-          TEST_CLASSES=$(find force-app -type f -name "*.cls" \
-            | grep -Ei '(^|_|)(test)' \
-            | sed 's/.*\///;s/\.cls//' )
-          echo "TEST_CLASSES=$TEST_CLASSES" >> $GITHUB_OUTPUT
-          echo "$TEST_CLASSES"
+          TEST_LIST=""
+          echo "=== Extracting Apex Classes from delta package.xml ==="
+
+          APEX_CLASSES=$(xmllint --xpath \
+            "//*[local-name()='types'][*[local-name()='name']='ApexClass']/*[local-name()='members']/text()" \
+            delta/package/package.xml)
+
+          echo "Changed Apex Classes:"
+          echo "$APEX_CLASSES"
+
+          for CLASS in $APEX_CLASSES; do
+            echo "--------------------------------------"
+            echo "Processing Apex Class: $CLASS"
+
+            REGEX="^${CLASS}([A-Za-z0-9_]*)(test)$"
+            echo "Test class matching regex: $REGEX"
+
+            TESTS_IN_DELTA=$(xmllint --xpath \
+              "//*[local-name()='types'][*[local-name()='name']='ApexClass']/*[local-name()='members']/text()" \
+              delta/package/package.xml | grep -Ei "$REGEX" || true)
+
+            if [ -n "$TESTS_IN_DELTA" ]; then
+              echo "✔ Found in delta: $TESTS_IN_DELTA"
+              TEST_LIST="$TEST_LIST $TESTS_IN_DELTA"
+              continue
+            fi
+
+            TESTS_IN_REPO=$(find force-app -type f -name "*.cls" \
+              | sed 's/.*\///;s/\.cls//' \
+              | grep -Ei "$REGEX" || true)
+
+            if [ -n "$TESTS_IN_REPO" ]; then
+              echo "✔ Found in repo: $TESTS_IN_REPO"
+              TEST_LIST="$TEST_LIST $TESTS_IN_REPO"
+            else
+              DEFAULT="${CLASS}Test"
+              echo "⚠ No test found — using fallback: $DEFAULT"
+              TEST_LIST="$TEST_LIST $DEFAULT"
+            fi
+          done
+
+          echo "--------------------------------------"
+          echo "FINAL TEST LIST:"
+          echo "$TEST_LIST"
+
+          echo "TEST_LIST=$TEST_LIST" >> $GITHUB_OUTPUT
 
       # Validate Deployment
       - name: Validate Delta
@@ -556,7 +598,7 @@ jobs:
           ALIAS="${{ steps.auth.outputs.env_alias }}"
           echo "Validating in environment: $ALIAS"
 
-          ALL_TESTS="${{ steps.tests.outputs.TEST_CLASSES }}"
+          ALL_TESTS="${{ steps.tests.outputs.TEST_LIST }}"
 
           echo "Found Test Classes: $ALL_TESTS"
           
