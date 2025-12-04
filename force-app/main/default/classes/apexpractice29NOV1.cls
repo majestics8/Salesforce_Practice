@@ -41,7 +41,7 @@ public class apexpractice29NOV1 {
             }
             if(ocr.IsPrimary==true){
                 ocrupdate.add(new OpportunityContactRole(Id=ocr.Id,IsPrimary=false));
-            }*/  //pls ingnore this code
+            }*/  // pls ingnore this code
             if(ocr.IsPrimary && (ocrmap2.get(ocr.OpportunityId)==null || ocr.Id != ocrmap2.get(ocr.OpportunityId).Id)){
 				ocrupdate.add(new OpportunityContactRole(Id=ocr.Id,IsPrimary=false));                
             }

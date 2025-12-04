@@ -586,7 +586,7 @@ jobs:
               -l NoTestRun
           fi
 
-  # 3. DEPLOY TO UAT ON MAIN BRANCH
+  #3. DEPLOY TO UAT ON MAIN BRANCH
 
   Deploy:
     needs: validate
@@ -694,12 +694,12 @@ jobs:
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
           sf project deploy start \
-            --source-dir delta/package/package.xml \
+            --manifest delta/package/package.xml \
             --target-org "${{ steps.env.outputs.ENV_NAME }}"\
             --test-level RunLocalTests 
 
       # Tag Deployment
-      
+
       - name: Tag deployment
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
