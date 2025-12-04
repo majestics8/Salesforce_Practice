@@ -547,7 +547,7 @@ jobs:
             | grep -Ei '(^|_|)(test)' \
             | sed 's/.*\///;s/\.cls//' )
           echo "TEST_CLASSES=$TEST_CLASSES" >> $GITHUB_OUTPUT
-
+          echo "$TEST_CLASSES"
 
       # Validate Deployment
       - name: Validate Delta
