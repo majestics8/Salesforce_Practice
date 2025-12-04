@@ -503,8 +503,9 @@ jobs:
             -R rulesets/apex/quickstart.xml \
             -f text || true 
 
-
-
+      - name: Install xmllint
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+        
       # Authenticate
       - name: Authenticate to Environment
         id: auth

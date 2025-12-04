@@ -46,6 +46,7 @@ public class apexpractice29NOV1 {
                 ocrupdate.add(new OpportunityContactRole(Id=ocr.Id,IsPrimary=false));
             }
         }
+    
         
         if(!ocrupdate.isEmpty()){
             update ocrupdate;
