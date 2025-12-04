@@ -586,7 +586,7 @@ jobs:
               -l NoTestRun
           fi
 
-  # 3. DEPLOY TO UAT ON MAIN BRANCH
+  #3. DEPLOY TO UAT ON MAIN BRANCH
 
   Deploy:
     needs: validate
@@ -699,7 +699,7 @@ jobs:
             --test-level RunLocalTests 
 
       # Tag Deployment
-                                  
+
       - name: Tag deployment
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
