@@ -1,1 +1,37 @@
 force://PlatformCLI::5Aep8610lkY9CyPXX2IAHZ0wEX6TaGH6AlrPWBsYqFJBV8CiVwCrayC7PQoro.OA8gWd.sxAgluoznxkQztK5lz@creative-moose-o5ukgc-dev-ed.trailblaze.my.salesforce.com
+
+# Validate Deployment
+  - script: |
+      echo "=== VALIDATION START ==="
+      echo "APEX_TESTS = $APEX_TESTS"
+ 
+      # Convert comma-separated list to space-separated list
+      CLEAN_TESTS=$(echo "$APEX_TESTS" | tr ',' ' ')
+ 
+      echo "CLEAN_TESTS = $CLEAN_TESTS"
+ 
+      TEST_PARAMS=""
+ 
+      # Loop through each test
+      for t in $CLEAN_TESTS; do
+        CLEAN=$(echo "$t" | awk '{$1=$1;print}')
+        TEST_PARAMS="$TEST_PARAMS --tests $CLEAN"
+      done
+ 
+      echo "Final TEST_PARAMS = $TEST_PARAMS"
+ 
+      if [ -n "$APEX_TESTS" ]; then
+        echo "Running validation with tests:"
+        echo "$TEST_PARAMS"
+ 
+        eval sf project deploy start -x delta/package/package.xml -o QA --dry-run -l RunSpecifiedTests $TEST_PARAMS
+        
+      else
+        echo "Running validation with NoTestRun"
+        sf project deploy start \
+          -x delta/package/package.xml \
+          -o QA \
+          --dry-run \
+          -l NoTestRun
+      fi
+    displayName: "Validate Deployment"

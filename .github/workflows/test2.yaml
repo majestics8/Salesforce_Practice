@@ -477,7 +477,7 @@ jobs:
           mkdir delta
 
           echo "Running delta creation command"
-          sf sgd source delta --to "$TO_COMMIT" --from "$FROM_COMMIT" --output delta/ --generate-delta --source force-app/main/default
+          sf sgd source delta --to "$TO_COMMIT" --from "$FROM_COMMIT" --output delta/ --generate-delta --source force-app/
           
           echo "Delta structure:"
           tree delta || ls -R delta
@@ -495,6 +495,7 @@ jobs:
           fi
       
       - name: Run Pmd Scan For Generated Delta
+        if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
           chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
           ./pmd/pmd-bin-7.7.0/bin/pmd check \
@@ -502,8 +503,9 @@ jobs:
             -R rulesets/apex/quickstart.xml \
             -f text || true 
 
+
+
       # Authenticate
-      
       - name: Authenticate to Environment
         id: auth
         if: steps.delta.outputs.NO_CHANGES == 'false'
@@ -537,20 +539,54 @@ jobs:
           sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
           rm authfile.txt
 
-      # Validate Deployment
+      # Fetch All Apex Test Classes
+      - name: Extract all Test Classes
+        id: tests
+        run: |
+          TEST_CLASSES=$(find force-app -type f -name "*.cls" \
+            | grep -Ei '(^|_|)(test)' \
+            | sed 's/.*\///;s/\.cls//' )
+          echo "TEST_CLASSES=$TEST_CLASSES" >> $GITHUB_OUTPUT
+          echo "$TEST_CLASSES"
 
+      # Validate Deployment
       - name: Validate Delta
         if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
           ALIAS="${{ steps.auth.outputs.env_alias }}"
           echo "Validating in environment: $ALIAS"
 
-          sf project deploy validate \
-            --source-dir delta/force-app \
-            --target-org "$ALIAS" \
-            --test-level RunLocalTests 
+          ALL_TESTS="${{ steps.tests.outputs.TEST_CLASSES }}"
 
-  # 3. DEPLOY TO UAT ON MAIN BRANCH
+          echo "Found Test Classes: $ALL_TESTS"
+          
+          TEST_PARAMS=""
+
+          for t in $ALL_TESTS; do
+            CLEAN=$(echo "$t" | awk '{$1=$1;print}')
+            TEST_PARAMS="$TEST_PARAMS --tests $CLEAN"
+          done
+
+          echo "Final TEST_PARAMS: $TEST_PARAMS"
+          
+          if [ -n "$ALL_TESTS" ]; then
+            echo "Executing validation using RunSpecifiedTests"
+            eval sf project deploy start \
+              -x delta/package/package.xml \
+              -o "$ALIAS" \
+              --dry-run \
+              -l RunSpecifiedTests \
+              $TEST_PARAMS
+          else
+            echo "No test classes found — Running NoTestRun"
+            sf project deploy start \
+              -x delta/package/package.xml \
+              -o "$ALIAS" \
+              --dry-run \
+              -l NoTestRun
+          fi
+
+  #3. DEPLOY TO UAT ON MAIN BRANCH
 
   Deploy:
     needs: validate
@@ -607,7 +643,7 @@ jobs:
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 --match "${{ steps.env.outputs.DEPLOY_TAG_PREFIX}}/*" 2>/dev/null || true)
           if [ -z "$LAST_TAG" ]; then
-               
+            echo "Unable To Find Tags"   
             BRANCH_NAME="${GITHUB_REF#refs/heads/}"
 
             echo "Fetching remote branch: $BRANCH_NAME"
@@ -617,6 +653,7 @@ jobs:
             FROM=$MERGE_BASE
 
           else
+            echo "Tags Found Successfully"
             FROM=$(git rev-list -n 1 "$LAST_TAG")
           fi
 
@@ -657,12 +694,12 @@ jobs:
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
           sf project deploy start \
-            --source-dir delta/force-app \
+            --manifest delta/package/package.xml \
             --target-org "${{ steps.env.outputs.ENV_NAME }}"\
             --test-level RunLocalTests 
 
       # Tag Deployment
-      
+
       - name: Tag deployment
         if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
         run: |
