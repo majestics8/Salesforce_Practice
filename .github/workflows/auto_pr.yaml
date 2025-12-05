@@ -89,6 +89,9 @@ jobs:
           unzip pmd.zip -d pmd
           echo "PMD extracted:"
           ls -R pmd
+          
+      - name: Install xmllint
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
 
       - name: Delta plugins download
         run: |
