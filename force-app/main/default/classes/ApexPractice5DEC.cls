@@ -24,4 +24,4 @@ public class ApexPractice5DEC {
             }
         }
     }
-}
+}//code ends
