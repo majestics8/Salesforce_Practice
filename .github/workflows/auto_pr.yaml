@@ -230,11 +230,17 @@ jobs:
             if [ -n "$TESTS_IN_REPO" ]; then
               echo "✔ Found in repo: $TESTS_IN_REPO"
               TEST_LIST="$TEST_LIST $TESTS_IN_REPO"
+              continue
+            fi
+            
+            if [[ "$CLASS" =~ [Tt]est$ || "$CLASS" =~ [Tt]ests$ || "$CLASS" =~ [Tt]est[Cc]lass$ ]]; then
+              DEFAULT="$CLASS"
             else
               DEFAULT="${CLASS}Test"
-              echo "⚠ No test found — using fallback: $DEFAULT"
-              TEST_LIST="$TEST_LIST $DEFAULT"
             fi
+
+            echo "⚠ No test found — using fallback: $DEFAULT"
+            TEST_LIST="$TEST_LIST $DEFAULT"
           done
 
           echo "--------------------------------------"
@@ -243,7 +249,7 @@ jobs:
 
           echo "TEST_LIST=$TEST_LIST" >> $GITHUB_OUTPUT
 
-
+      # Validate Deployment
       - name: Validate Delta
         if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |

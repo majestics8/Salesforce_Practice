@@ -14,11 +14,6 @@
                 <label>Gold</label>
             </value>
             <value>
-                <fullName>Silver</fullName>
-                <default>false</default>
-                <label>Silver</label>
-            </value>
-            <value>
                 <fullName>Platinum</fullName>
                 <default>false</default>
                 <label>Platinum</label>
