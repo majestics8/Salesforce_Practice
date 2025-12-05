@@ -7,11 +7,11 @@ public class apexpractice29NOV1 {
                 system.debug('code run');
             }
         }
-       // Map<Id,OpportunityContactRole> ocr=new Map<Id,OpportunityContactRole>();  //ignore this line
+        // Map<Id,OpportunityContactRole> ocr=new Map<Id,OpportunityContactRole>();  //ignore this line
         List<OpportunityContactRole> ocrmap1=new List<OpportunityContactRole>();
         Map<Id,OpportunityContactRole> ocrmap2=new Map<Id,OpportunityContactRole>();
         for(OpportunityContactRole oppcr:[select Id,OpportunityId,ContactId,IsPrimary,Role From OpportunityContactRole where OpportunityId In:oppmap.keyset()]){
- 
+            
             ocrmap1.add(oppcr);
             
             if(oppmap.get(oppcr.OpportunityId)==oppcr.ContactId){
@@ -25,7 +25,7 @@ public class apexpractice29NOV1 {
             system.debug('Took enterance');
             if(ocrmap2.containsKey(opp)){
                 system.debug(ocrmap2.get(opp));
-                if(ocrmap2.get(opp).IsPrimary==false){	
+                if(ocrmap2.get(opp).IsPrimary==false){
                     ocrupdate.add(new OpportunityContactRole(Id=ocrmap2.get(opp).Id,IsPrimary=true,Role='Decision Maker'));
                 }
             }
@@ -43,9 +43,10 @@ public class apexpractice29NOV1 {
                 ocrupdate.add(new OpportunityContactRole(Id=ocr.Id,IsPrimary=false));
             }*/  // pls ingnore this code
             if(ocr.IsPrimary && (ocrmap2.get(ocr.OpportunityId)==null || ocr.Id != ocrmap2.get(ocr.OpportunityId).Id)){
-				ocrupdate.add(new OpportunityContactRole(Id=ocr.Id,IsPrimary=false));                
+                ocrupdate.add(new OpportunityContactRole(Id=ocr.Id,IsPrimary=false));
             }
         }
+    
         
         if(!ocrupdate.isEmpty()){
             update ocrupdate;
