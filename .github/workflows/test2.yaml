@@ -571,7 +571,7 @@ jobs:
               echo "✔ Found in delta: $TESTS_IN_DELTA"
               TEST_LIST="$TEST_LIST $TESTS_IN_DELTA"
               continue
-            fi
+            fi 
 
             TESTS_IN_REPO=$(find force-app -type f -name "*.cls" \
               | sed 's/.*\///;s/\.cls//' \

@@ -249,7 +249,7 @@ jobs:
 
           echo "TEST_LIST=$TEST_LIST" >> $GITHUB_OUTPUT
 
-
+      # Validate Deployment
       - name: Validate Delta
         if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
