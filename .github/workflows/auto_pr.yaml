@@ -56,7 +56,7 @@ jobs:
       run: |
         echo "Creating PR: ${SOURCE} → ${NEXT}"
 
-        gh pr create \
+        gh pr create \z
           --title "Auto Promotion: ${SOURCE} → ${NEXT}" \
           --body "This PR was automatically created after merging ${SOURCE} into ${TARGET}." \
           --base "${NEXT}" \
