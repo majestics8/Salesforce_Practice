@@ -7,6 +7,7 @@ public class ApexPractice5DEC {
             Lead oldll=oldmap.get(newll.Id);
             if(newll.status=='Working - Contacted' && oldll.status=='Open - Not Contacted'){
 				newll.ownerId=uu.Id;
+
             }
             if(newll.status=='Closed - Converted'){
                 ldid.add(newll.Id);
