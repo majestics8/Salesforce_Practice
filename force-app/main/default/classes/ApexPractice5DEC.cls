@@ -18,7 +18,8 @@ public class ApexPractice5DEC {
         for(Task tt:[select WhoId from Task Where Status!='Not Started' And Status!='Completed' And WhoId In:ldid]){
             opentask.add(tt.WhoId);
         }
-        
+
+//extra change
         for(Lead ld:ldlist){
             if(opentask.contains(ld.Id)){
                 ld.AddError('The Lead Cannot Be Updated');
