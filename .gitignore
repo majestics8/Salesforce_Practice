@@ -48,3 +48,4 @@ $RECYCLE.BIN/
 **/venv/
 
 .github/workflows/pmd-validate-deploy.yaml
+.github/workflows/Validation-Deployment.yaml
