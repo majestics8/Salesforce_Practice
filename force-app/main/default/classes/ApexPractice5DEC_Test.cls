@@ -35,6 +35,7 @@ public class ApexPractice5DEC_Test {
             Status = 'Open - Not Contacted'
         );
         insert ld;
+        
 
         // 4️⃣ Update status to "Working - Contacted"
         ld.Status = 'Working - Contacted';
