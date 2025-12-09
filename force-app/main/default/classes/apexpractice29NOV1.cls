@@ -36,6 +36,12 @@ public class apexpractice29NOV1 {
         }
         
         for(OpportunityContactRole ocr:ocrmap1){
+            /*if(!ocrmap2.isEmpty() && ocrmap2.get(ocr.OpportunityId).Id==ocr.Id){
+                continue;
+            }
+            if(ocr.IsPrimary==true){
+                ocrupdate.add(new OpportunityContactRole(Id=ocr.Id,IsPrimary=false));
+            }*/  // pls ingnore this code
             if(ocr.IsPrimary && (ocrmap2.get(ocr.OpportunityId)==null || ocr.Id != ocrmap2.get(ocr.OpportunityId).Id)){
                 ocrupdate.add(new OpportunityContactRole(Id=ocr.Id,IsPrimary=false));
             }
@@ -49,4 +55,4 @@ public class apexpractice29NOV1 {
             insert ocrinsert;
         }
     }
-} //code end
+} //cide end
