@@ -18,7 +18,7 @@ public class ApexPractice5DEC {
             opentask.add(tt.WhoId);
         }
 
-        //extra change
+        // extra change
         for(Lead ld:ldlist){
             if(opentask.contains(ld.Id)){
                 ld.AddError('The Lead Cannot Be Updated');
