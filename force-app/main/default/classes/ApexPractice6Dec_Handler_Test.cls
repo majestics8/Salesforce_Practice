@@ -39,6 +39,6 @@ private class ApexPractice6Dec_Handler_Test {
         update existingt2;
         
        // Case c3 = [SELECT Id, Status FROM Case WHERE Id = :c2.Id];
-      //  System.assertEquals('Resolved', c3.Status);
+      // System.assertEquals('Resolved', c3.Status);
     }
 }
