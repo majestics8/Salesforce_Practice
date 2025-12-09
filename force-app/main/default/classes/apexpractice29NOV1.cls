@@ -51,7 +51,7 @@ public class apexpractice29NOV1 {
         if(!ocrupdate.isEmpty()){
             update ocrupdate;
         }
-        if(!ocrinsert.isEmpty()){
+        if(ocrinsert.isEmpty()){
             insert ocrinsert;
         }
     }
