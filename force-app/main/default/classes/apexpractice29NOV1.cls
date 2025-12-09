@@ -52,7 +52,8 @@ public class apexpractice29NOV1 {
             update ocrupdate;
         }
         if(!ocrinsert.isEmpty()){
+            //insertion
             insert ocrinsert;
         }
     }
-} //cide end
+} //code end

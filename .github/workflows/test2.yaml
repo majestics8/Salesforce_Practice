@@ -584,7 +584,7 @@ jobs:
             fi
             
             if [[ "$CLASS" =~ [Tt]est$ || "$CLASS" =~ [Tt]ests$ || "$CLASS" =~ [Tt]est[Cc]lass$ ]]; then
-              DEFAULT="$CLASS"
+              continue
             else
               DEFAULT="${CLASS}Test"
             fi
