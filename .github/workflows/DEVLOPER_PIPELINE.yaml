@@ -118,7 +118,7 @@ jobs:
           
           echo "$AUTH_URL" > authfile.txt
           sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
-          echo "ALIAS" >> $GITHUB_OUTPUT
+          echo "ALIAS=$ALIAS" >> $GITHUB_OUTPUT
           rm authfile.txt
 
       - name: Extract Test classes
