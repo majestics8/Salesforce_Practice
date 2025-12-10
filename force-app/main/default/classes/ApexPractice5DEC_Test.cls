@@ -64,6 +64,7 @@ public class ApexPractice5DEC_Test {
         } catch (DmlException e) {
             System.assert(e.getMessage().contains('The Lead Cannot Be Updated'),
                 'Expected task error message');
+                
         }
     }
 }
