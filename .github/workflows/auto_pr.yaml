@@ -153,6 +153,7 @@ jobs:
           fi
 
       - name: Run Pmd Scan For Generated Delta
+        if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
           chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
           ./pmd/pmd-bin-7.7.0/bin/pmd check \
@@ -194,6 +195,7 @@ jobs:
       # Validate Deployment
 
       - name: Extract all Test Classes
+        if: steps.delta.outputs.NO_CHANGES == 'false'
         id: tests
         run: |
           TEST_LIST=""
