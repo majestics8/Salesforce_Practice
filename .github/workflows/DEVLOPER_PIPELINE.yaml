@@ -1,10 +1,5 @@
 name: DEV-PIPELINE
 on:
-  push:
-    branches:
-      - qa
-      - uat
-      - main
   pull_request:
     branches:
       - qa
@@ -15,7 +10,7 @@ on:
 jobs:
   validate:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest@v3
+    runs-on: ubuntu-latest
 
     steps:
       - name: Download Repo
@@ -60,7 +55,7 @@ jobs:
             TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
           fi
 
-          if[ -z "$SRC_COMMIT" ] || [ -z "$SRC_COMMIT" ]; then
+          if [ -z "$SRC_COMMIT" ] || [ -z "$SRC_COMMIT" ]; then
             echo "The commits not found falling back to merge-base method"
 
             echo "Fetching the target Branch : $TARGET_BRANCH"
@@ -76,7 +71,7 @@ jobs:
           echo "Running delta creation command"
           sf sgd source delta --to "$TO_COMMIT" --from "$FROM_COMMIT" --output delta/ --generate-delta --source force-app/
 
-          if[ ! -d "delta/force-app" ] || [ -z "$(ls -A delta/force-app)" ]
+          if [ ! -d "delta/force-app" ] || [ -z "$(ls -A delta/force-app)" ]; then
             echo "No Delta Changes Found The Delta Directory is Empty Probably No Changes Made"
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
             exit 0
@@ -87,7 +82,7 @@ jobs:
             echo "--force-app folder content--"
             ls -R delta/force-app
             echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
-            echo "TARGET_BRANCH" >> $GITHUB_OUTPUT
+            echo "TARGET_BRANCH=TARGET_BRANCH" >> $GITHUB_OUTPUT
           fi
       - name: RUN PMD SCAN
         run: |
@@ -122,7 +117,7 @@ jobs:
 
           
           echo "$AUTH_URL" > authfile.txt
-          sf org login sfdx-url --sfdx-url-file authFile.txt --alias "$ALIAS" --set-default
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
           echo "ALIAS" >> $GITHUB_OUTPUT
           rm authfile.txt
 
