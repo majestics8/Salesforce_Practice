@@ -229,12 +229,14 @@ jobs:
 
   Deployment:
     needs: validate
-    if: github.event.name == 'push' 
+    if: github.event_name == 'push' 
     runs-on: ubuntu-latest
 
     steps:
       - name: Install repo
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
         
       - name: Install Node.js
         uses: actions/setup-node@v3
