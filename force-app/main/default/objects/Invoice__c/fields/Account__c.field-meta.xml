@@ -7,6 +7,7 @@
     <relationshipLabel>Invoices</relationshipLabel>
     <relationshipName>Invoices</relationshipName>
     <required>true</required>
+    <deleteConstraint>Restrict</deleteConstraint>
     <trackTrending>false</trackTrending>
     <type>Lookup</type>
 </CustomField>
