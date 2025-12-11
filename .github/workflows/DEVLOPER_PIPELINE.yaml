@@ -65,7 +65,7 @@ jobs:
             TARGET_BRANCH="${GITHUB_REF#refs/heads/}"
           fi
 
-          if [ -z "$SRC_COMMIT" ] || [ -z "$SRC_COMMIT" ]; then
+          if [ -z "$SRC_COMMIT" ] || [ -z "$TGT_COMMIT" ]; then
             echo "The commits not found falling back to merge-base method"
 
             echo "Fetching the target Branch : $TARGET_BRANCH"
