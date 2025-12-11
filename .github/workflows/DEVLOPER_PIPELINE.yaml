@@ -35,7 +35,7 @@ jobs:
         run: |
           set -e
           echo "Downloading PMD..."
-          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.19.0/pmd-dist-7.19.0-bin.zip
+          curl -fL --retry 3 -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.19.0/pmd-dist-7.19.0-bin.zip
           unzip pmd.zip -d pmd
           echo "PMD extracted:"
           ls -R pmd
@@ -250,7 +250,7 @@ jobs:
       - name: Install PMD
         run: |
           echo "Downloading PMD..."
-          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.19.0/pmd-dist-7.19.0-bin.zip
+          curl -fL --retry 3 -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.19.0/pmd-dist-7.19.0-bin.zip
           unzip pmd.zip -d pmd
           echo "PMD extracted:"
           ls -R pmd
