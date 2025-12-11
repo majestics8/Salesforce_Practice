@@ -1,0 +1,381 @@
+name: DEV-PIPELINE
+on:
+  push:
+    branches:
+      - qa
+      - uat
+      - main
+  pull_request:
+    branches:
+      - qa
+      - uat
+      - main
+    paths:
+      - "force-app/**"
+jobs:
+  validate:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download Repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: Install SFDX 
+        run: npm install @salesforce/cli --global
+
+      - name: Install PMD
+        run: |
+          echo "Downloading PMD..."
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
+          unzip pmd.zip -d pmd
+          echo "PMD extracted:"
+          ls -R pmd
+      
+      - name: Install xmllint
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
+      - name: Install sfdx-git-delta
+        run: |
+          echo Y | sf plugins install sfdx-git-delta
+          sf plugins
+      
+      # Delta Creation
+      - name: Create Delta changes for validation
+        id: delta
+        run: |
+          rm -rf delta
+          mkdir delta
+          
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR SHAs
+            SRC_COMMIT="${{ github.event.pull_request.head.sha }}"
+            TGT_COMMIT="${{ github.event.pull_request.base.sha }}"
+            TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+            else
+            SRC_COMMIT=$(git rev-parse HEAD)
+            TGT_COMMIT=$(git rev-parse HEAD~1)
+            TARGET_BRANCH="${GITHUB_REF#refs/heads/}"
+          fi
+
+          if [ -z "$SRC_COMMIT" ] || [ -z "$SRC_COMMIT" ]; then
+            echo "The commits not found falling back to merge-base method"
+
+            echo "Fetching the target Branch : $TARGET_BRANCH"
+            
+            MERGE_BASE=$(git merge-base HEAD origin/$TARGET_BRANCH)
+            FROM_COMMIT=$MERGE_BASE
+            TO_COMMIT=HEAD
+          else
+            FROM_COMMIT=$TGT_COMMIT
+            TO_COMMIT=$SRC_COMMIT
+          fi
+
+          echo "Running delta creation command"
+          echo "Creating Delta package From Commit : $FROM_COMMIT To : $TO_COMMIT"
+          sf sgd source delta --to "$TO_COMMIT" --from "$FROM_COMMIT" --output delta/ --generate-delta --source force-app/
+
+          if [ ! -d "delta/force-app" ] || [ -z "$(ls -A delta/force-app)" ]; then
+            echo "No Delta Changes Found The Delta Directory is Empty Probably No Changes Made"
+            echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "--package.xml content--"
+            cat delta/package/package.xml
+            
+            echo "--force-app folder content--"
+            ls -R delta/force-app
+            echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
+            echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          fi
+
+      # PMD SCAN
+      - name: RUN PMD SCAN
+        run: |
+          chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
+          ./pmd/pmd-bin-7.7.0/bin/pmd check \
+            -d delta \
+            -R rulesets/apex/quickstart.xml \
+            -f text || true
+
+      # Authentication
+      - name: Authenticate to org
+        id: auth
+        if: steps.delta.outputs.NO_CHANGES == 'false'
+        run: |
+          TARGET_BRANCH="${{ steps.delta.outputs.TARGET_BRANCH }}"
+          echo "Authenticating Based On Target Branch : $TARGET_BRANCH"
+          
+          if [ "$TARGET_BRANCH" = "qa" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_QA }}"
+            ALIAS="QA"
+          elif [ "$TARGET_BRANCH" = "uat" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_UAT }}"
+            ALIAS="UAT"
+          elif [ "$TARGET_BRANCH" = "main" ]; then
+            AUTH_URL="${{ secrets.SFDX_AUTH_URL_PROD }}"
+            ALIAS="PROD"
+          else
+            echo "ERROR: Unsupported branch: $TARGET_BRANCH"
+            exit 1
+          fi
+
+          echo "Authenticating to $ALIAS Branch"
+
+          
+          echo "$AUTH_URL" > authfile.txt
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "$ALIAS" --set-default
+          echo "ALIAS=$ALIAS" >> $GITHUB_OUTPUT
+          rm authfile.txt
+      
+      # Extracting test classes
+      - name: Extract Test classes
+        id: test
+        if: steps.delta.outputs.NO_CHANGES == 'false'
+        run: |
+          TEST_LIST=""
+          echo "=== Extracting Apex Classes from delta package.xml ==="
+
+          APEX_CLASSES=$(xmllint --xpath \
+            "//*[local-name()='types'][*[local-name()='name']='ApexClass']/*[local-name()='members']/text()" \
+            delta/package/package.xml)
+
+          echo "Changed Apex Classes:"
+          echo "$APEX_CLASSES"
+
+          for CLASS in $APEX_CLASSES; do
+            echo "--------------------------------------"
+            echo "Processing Apex Class: $CLASS"
+
+            REGEX="^${CLASS}([A-Za-z0-9_]*)(test)$"
+            echo "Test class matching regex: $REGEX"
+
+            TESTS_IN_DELTA=$(xmllint --xpath \
+              "//*[local-name()='types'][*[local-name()='name']='ApexClass']/*[local-name()='members']/text()" \
+              delta/package/package.xml | grep -Ei "$REGEX" || true)
+
+            if [ -n "$TESTS_IN_DELTA" ]; then
+              echo "✔ Found in delta: $TESTS_IN_DELTA"
+              TEST_LIST="$TEST_LIST $TESTS_IN_DELTA"
+              continue
+            fi
+
+            TESTS_IN_REPO=$(find force-app -type f -name "*.cls" \
+              | sed 's/.*\///;s/\.cls//' \
+              | grep -Ei "$REGEX" || true)
+
+            if [ -n "$TESTS_IN_REPO" ]; then
+              echo "✔ Found in repo: $TESTS_IN_REPO"
+              TEST_LIST="$TEST_LIST $TESTS_IN_REPO"
+              continue
+            fi
+            
+            if [[ "$CLASS" =~ [Tt]est$ || "$CLASS" =~ [Tt]ests$ || "$CLASS" =~ [Tt]est[Cc]lass$ ]]; then
+              continue
+            else
+              DEFAULT="${CLASS}Test"
+            fi
+
+            echo "⚠ No test found — using fallback: $DEFAULT"
+            TEST_LIST="$TEST_LIST $DEFAULT"
+          done
+
+          echo "--------------------------------------"
+          echo "FINAL TEST LIST:"
+          echo "$TEST_LIST"
+
+          echo "TEST_LIST=$TEST_LIST" >> $GITHUB_OUTPUT
+
+      # validation 
+      - name: Validate the ${{ steps.auth.outputs.ALIAS }} org
+        if: steps.delta.outputs.NO_CHANGES == 'false'
+        run: |
+          ALIAS="${{ steps.auth.outputs.ALIAS }}"
+          ALL_TESTS="${{ steps.test.outputs.TEST_LIST }}"
+          echo "Validating the $ALIAS org With Test Classes $ALL_TESTS"
+
+          TEST_PARAMS=""
+
+          for t in $ALL_TESTS; do
+            CLEAN=$(echo "$t" | awk '{$1=$1;print}')
+            TEST_PARAMS="$TEST_PARAMS --tests $CLEAN"
+          done
+
+          echo "Final TEST_PARAMS: $TEST_PARAMS"
+          
+          if [ -n "$ALL_TESTS" ]; then
+            echo "Executing validation using RunSpecifiedTests"
+            eval sf project deploy start \
+              -x delta/package/package.xml \
+              -o "$ALIAS" \
+              --dry-run \
+              -l RunSpecifiedTests \
+              $TEST_PARAMS
+          else
+            echo "No test classes found — Running NoTestRun"
+            sf project deploy start \
+              -x delta/package/package.xml \
+              -o "$ALIAS" \
+              --dry-run \
+              -l NoTestRun
+          fi 
+
+  Deployment:
+    needs: validate
+    if: github.event_name == 'push' 
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+        
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'  
+        
+      - name: Install SFDX 
+        run: npm install @salesforce/cli --global
+
+      - name: Install PMD
+        run: |
+          echo "Downloading PMD..."
+          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
+          unzip pmd.zip -d pmd
+          echo "PMD extracted:"
+          ls -R pmd
+      
+      - name: Install xmllint
+        run: sudo apt-get update && sudo apt-get install -y libxml2-utils
+
+      - name: Install sfdx-git-delta
+        run: |
+          echo Y | sf plugins install sfdx-git-delta
+          sf plugins 
+      
+      - name: Set Branch Environment
+        id: env
+        run: |
+          RAW_BRANCH="${GITHUB_REF#refs/heads/}"
+          if [[ "$RAW_BRANCH" == "qa" ]]; then
+            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_QA }}" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=QA" >> $GITHUB_OUTPUT
+            echo "DEPLOY_TAG_PREFIX=qa-deployed" >> $GITHUB_OUTPUT
+          elif [[ "$RAW_BRANCH" == "uat" ]]; then
+            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_UAT }}" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=UAT" >> $GITHUB_OUTPUT
+            echo "DEPLOY_TAG_PREFIX=uat-deployed" >> $GITHUB_OUTPUT
+          elif [[ "$RAW_BRANCH" == "main" ]]; then
+            echo "ORG_AUTH_URL=${{ secrets.SFDX_AUTH_URL_PROD }}" >> $GITHUB_OUTPUT
+            echo "ENV_NAME=PROD" >> $GITHUB_OUTPUT
+            echo "DEPLOY_TAG_PREFIX=prod-deployed" >> $GITHUB_OUTPUT
+          else
+            echo "ERROR: Unsupported branch $RAW_BRANCH"
+            exit 1
+          fi
+
+      # Searching for last deployment tag
+      - name: Find last deployment tag
+        id: last_tag
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 --match "${{ steps.env.outputs.DEPLOY_TAG_PREFIX}}/*" 2>/dev/null || true)
+          if [ -z "$LAST_TAG" ]; then
+            echo "Unable To Find Tags"   
+            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+
+            echo "Fetching remote branch: $BRANCH_NAME"
+            git fetch origin "$BRANCH_NAME:$BRANCH_NAME"
+
+            MERGE_BASE=$(git merge-base HEAD origin/$BRANCH_NAME)
+            FROM=$MERGE_BASE
+
+          else
+            echo "Tags Found Successfully"
+            FROM=$(git rev-list -n 1 "$LAST_TAG")
+          fi
+
+          echo "FROM_COMMIT=$FROM" >> $GITHUB_OUTPUT
+          echo "TO_COMMIT=HEAD" >> $GITHUB_OUTPUT
+      
+      # Delta Creation
+      - name: Create delta for deployment
+        id: delta_deploy
+        run: |
+          mkdir delta
+
+          sf sgd source delta \
+            --from "${{ steps.last_tag.outputs.FROM_COMMIT }}" \
+            --to "HEAD" \
+            --output delta/ \
+            --generate-delta \
+            --source force-app/ 
+
+          if [ ! -d "delta/force-app" ] || [ -z "$(ls -A delta/force-app)" ]; then
+            echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
+          else
+            echo "NO_CHANGES=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Authenticate
+      - name: Authentication
+        if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
+        run: |
+          echo "${{ steps.env.outputs.ORG_AUTH_URL }}" > authfile.txt
+          sf org login sfdx-url --sfdx-url-file authfile.txt --alias "${{ steps.env.outputs.ENV_NAME }}" --set-default
+          rm authfile.txt
+          echo "Authenticated to org: ${{ steps.env.outputs.ENV_NAME }}"  
+
+      
+      # Delta Deployment
+      - name: Deployment
+        if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
+        run: |
+          sf project deploy start \
+            --manifest delta/package/package.xml \
+            --target-org "${{ steps.env.outputs.ENV_NAME }}"\
+            --test-level RunLocalTests 
+
+      # Tag creation
+      - name: Tag deployment
+        if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions Bot"
+
+          TAG="${{ steps.env.outputs.DEPLOY_TAG_PREFIX }}/${{ github.sha }}"
+          git tag -a "$TAG" -m "Deployed ${{ github.sha }} to ${{ steps.env.outputs.ENV_NAME }}"
+          git push origin "$TAG" 
+
+
+          
+
+
+
+
+
+
+
+
+          
+
+          
+
+
+
+        
+
+
+            
+
+
+
+    
