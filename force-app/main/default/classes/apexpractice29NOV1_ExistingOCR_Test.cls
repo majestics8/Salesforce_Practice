@@ -16,7 +16,12 @@ private class apexpractice29NOV1_ExistingOCR_Test {
         insert opp;
 
         // Insert an OpportunityContactRole for that contact (existing OCR)
-        OpportunityContactRole existingOcr = new OpportunityContactRole(OpportunityId = opp.Id, ContactId = c.Id,Role = 'Influencer', IsPrimary = false);
+        OpportunityContactRole existingOcr = new OpportunityContactRole(
+            OpportunityId = opp.Id,
+            ContactId = c.Id,
+            Role = 'Influencer', // some non Decision Maker role to ensure update happens
+            IsPrimary = false
+        );
         insert existingOcr;
 
         // Now set the primary contact on Opportunity to that contact
