@@ -55,14 +55,14 @@ public class ApexPractice5DEC_Test {
         );
         insert t;
 
-        //Update to closed
+        // Update to closed
         ld.Status = 'Closed - Converted';
 
         try {
             update ld;
             System.assert(false, 'Expected error but update succeeded');
         } catch (DmlException e) {
-            System.assert(e.getMessage().contains('The Lead Cannot Be Updated'),
+            System.assert(e.getMessage().contains('The Lead cannot be updated'),
                 'Expected task error message');
                 
         }
