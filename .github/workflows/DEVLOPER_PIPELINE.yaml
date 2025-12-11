@@ -229,7 +229,7 @@ jobs:
 
   Deployment:
     needs: validate
-    if: github.event.name == 'push' 
+    if: github.event_name == 'push' 
     runs-on: ubuntu-latest
 
     steps:
