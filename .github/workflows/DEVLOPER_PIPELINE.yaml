@@ -290,13 +290,9 @@ jobs:
           LAST_TAG=$(git describe --tags --abbrev=0 --match "${{ steps.env.outputs.DEPLOY_TAG_PREFIX}}/*" 2>/dev/null || true)
           if [ -z "$LAST_TAG" ]; then
             echo "Unable To Find Tags"   
-            BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-
-            echo "Fetching remote branch: $BRANCH_NAME"
-            git fetch origin "$BRANCH_NAME:$BRANCH_NAME"
-
-            MERGE_BASE=$(git merge-base HEAD origin/$BRANCH_NAME)
-            FROM=$MERGE_BASE
+      
+            BEFORE_COMMIT="${{ github.event.before }}"
+            FROM=$BEFORE_COMMIT
 
           else
             echo "Tags Found Successfully"
