@@ -15,13 +15,14 @@ public class ApexPractice5DEC {
         if(ldid.isEmpty()) return;
         set<Id> opentask=new set<Id>();
         for(Task tt:[select WhoId from Task Where Status!='Not Started' And Status!='Completed' And WhoId In:ldid]){
+            // loop add lead ids
             opentask.add(tt.WhoId);
         }
 
         //extra change
         for(Lead ld:ldlist){
             if(opentask.contains(ld.Id)){
-                ld.AddError('The Lead Cannot Be Updated');
+                ld.AddError('The Lead cannot be updated');
             }
         }
     }
