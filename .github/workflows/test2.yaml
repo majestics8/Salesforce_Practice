@@ -428,6 +428,7 @@ jobs:
 
       - name: Install PMD to scan apex code
         run: |
+          set -e
           echo "Downloading PMD..."
           curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
           unzip pmd.zip -d pmd
