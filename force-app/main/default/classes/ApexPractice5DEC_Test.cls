@@ -55,7 +55,7 @@ public class ApexPractice5DEC_Test {
         );
         insert t;
 
-        // Update to closed
+        //Update to closed
         ld.Status = 'Closed - Converted';
 
         try {
