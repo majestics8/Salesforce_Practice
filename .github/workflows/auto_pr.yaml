@@ -82,10 +82,11 @@ jobs:
       - name: Install Salesforce CLI
         run: npm install @salesforce/cli --global
 
-      - name: Install PMD to scan apex code
+      - name: Install PMD
         run: |
+          set -e
           echo "Downloading PMD..."
-          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases/7.7.0/pmd-dist-7.7.0-bin.zip
+          curl -fL --retry 3 -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.19.0/pmd-dist-7.19.0-bin.zip
           unzip pmd.zip -d pmd
           echo "PMD extracted:"
           ls -R pmd
@@ -152,14 +153,15 @@ jobs:
             echo "NO_CHANGES=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run Pmd Scan For Generated Delta
+      - name: RUN PMD SCAN
         if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
-          chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
-          ./pmd/pmd-bin-7.7.0/bin/pmd check \
+          PMD_BIN="./pmd/pmd-bin-7.19.0/bin/pmd"
+          chmod +x $PMD_BIN
+          $PMD_BIN check \
             -d delta \
             -R rulesets/apex/quickstart.xml \
-            -f text || true 
+            -f text || echo "PMD scan completed with some issues, but workflow continues"
              
       - name: Authenticate to Environment
         id: auth

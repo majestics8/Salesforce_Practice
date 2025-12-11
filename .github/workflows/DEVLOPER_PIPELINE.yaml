@@ -99,6 +99,7 @@ jobs:
 
       # PMD SCAN
       - name: RUN PMD SCAN
+        if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
           PMD_BIN="./pmd/pmd-bin-7.19.0/bin/pmd"
           chmod +x $PMD_BIN
