@@ -7,8 +7,11 @@ private class ApexPractice6Dec_Handler_Test {
         insert c1;
 
         Case_Task__c t1 = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='Medium');
-        Case_Task__c t2 = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='Medium');
         Case_Task__c t3 = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='High');
+        Case_Task__c t2 = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='Medium');
+        Case_Task__c t3test = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='High');
+        Case_Task__c t3test = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='High');
+        Case_Task__c t2test = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='Medium');
         insert new List<Case_Task__c>{t1,t2,t3};
 
         // Reload cases and assert expected statuses
