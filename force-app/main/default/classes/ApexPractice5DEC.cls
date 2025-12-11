@@ -1,27 +1,70 @@
-public class ApexPractice5DEC {
-    public static void Leadstatuscheck(List<Lead> ldlist,Map<Id,Lead> oldmap){
-        set<Id> ldid=new set<Id>();
-        Id pfid=[select Id from Profile where Name='Analytics Cloud Integration User' Limit 1].Id;
-        User uu=[select Id from User where ProfileId = :pfid Limit 1];
-        for(Lead newll:ldlist){
-            Lead oldll=oldmap.get(newll.Id);
-            if(newll.status=='Working - Contacted' && oldll.status=='Open - Not Contacted'){
-				newll.ownerId=uu.Id;
+public class ApexPractice5DEC
+{
+
+    public static void Leadstatuscheck(
+        List<Lead> ldlist,
+        Map<Id, Lead> oldmap
+    )
+    {
+        Set<Id> ldid = new Set<Id>();
+
+        // UAT VERSION — SAME LINE BUT DIFFERENT CONTENT
+        Id pfid = [
+            SELECT Id
+            FROM Profile
+            WHERE Name = 'Analytics Cloud Integration User'
+            LIMIT 1
+        ].Id;
+
+        User uu = [
+            SELECT Id
+            FROM User
+            WHERE ProfileId = :pfid
+            LIMIT 1
+        ];
+
+        for (Lead newll : ldlist)
+        {
+            Lead oldll = oldmap.get(newll.Id);
+
+            if (
+                newll.status == 'Working - Contacted'
+                &&
+                oldll.status == 'Open - Not Contacted'
+            )
+            {
+                newll.ownerId = uu.Id;
             }
-            if(newll.status=='Closed - Converted'){
+
+            if (newll.status == 'Closed - Converted')
+            {
                 ldid.add(newll.Id);
             }
         }
-        if(ldid.isEmpty()) return;
-        set<Id> opentask=new set<Id>();
-        for(Task tt:[select WhoId from Task Where Status!='Not Started' And Status!='Completed' And WhoId In:ldid]){
+
+        if (ldid.isEmpty())
+        {
+            return;
+        }
+
+        Set<Id> opentask = new Set<Id>();
+
+        for (Task tt : [
+            SELECT WhoId
+            FROM Task
+            WHERE Status != 'Not Started'
+            AND Status != 'Completed'
+            AND WhoId IN :ldid
+        ])
+        {
             opentask.add(tt.WhoId);
         }
 
-        //extra change
-        for(Lead ld:ldlist){
-            if(opentask.contains(ld.Id)){
-                ld.AddError('The Lead Cannot Be Updated');
+        for (Lead ld : ldlist)
+        {
+            if (opentask.contains(ld.Id))
+            {
+                ld.addError('The Lead cannot be updated — UAT');
             }
         }
     }
