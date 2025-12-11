@@ -48,4 +48,5 @@ $RECYCLE.BIN/
 **/venv/
 
 .github/workflows/pmd-validate-deploy.yaml
-.github/workflows/Validation-Deployment.yaml
+.github/workflows/test2.yaml
+.github/workflows/auto_back_sync.yaml
