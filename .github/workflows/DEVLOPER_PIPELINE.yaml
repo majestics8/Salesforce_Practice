@@ -145,7 +145,7 @@ jobs:
 
           APEX_CLASSES=$(xmllint --xpath \
             "//*[local-name()='types'][*[local-name()='name']='ApexClass']/*[local-name()='members']/text()" \
-            delta/package/package.xml)
+            delta/package/package.xml 2>/dev/null || true)
 
           echo "Changed Apex Classes:"
           echo "$APEX_CLASSES"
@@ -182,7 +182,7 @@ jobs:
             else
               DEFAULT="${CLASS}Test"
             fi
-
+            
             echo "⚠ No test found — using fallback: $DEFAULT"
             TEST_LIST="$TEST_LIST $DEFAULT"
           done
