@@ -88,7 +88,7 @@ public class ApexPractice6Dec_Handler {
                     String[] toaddress=new String[] {existingcase.get(c).Owner.Email};
                     mail.setToAddresses(toaddress);
                     mail.setSubject('Alert For High Priority Case Task');
-                    mail.setPlainTextBody( 'Hello!'+'\n\n'+'We have Found The Hight Priority Case Task'+ 'pls Check It Out '+ 'ThankYou !' );
+                    mail.setPlainTextBody( 'Hello!'+'\n\n'+'We have Found The Hight Priority Case Task'+ 'Please Resolve the issues beacuse the prority is high'+ 'ThankYou !' );
                     email.add(mail);
                 }
             }
@@ -98,4 +98,3 @@ public class ApexPractice6Dec_Handler {
         }
     }
 }
-//big code
