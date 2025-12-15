@@ -7,7 +7,7 @@ public class apexpractice29NOV1 {
                 system.debug('code run');
             }
         }
-        // Map<Id,OpportunityContactRole> ocr=new Map<Id,OpportunityContactRole>();  //ignore this line
+        // Map<Id,OpportunityContactRole> ocr=new Map<Id,OpportunityContactRole>();      //ignore this line
         List<OpportunityContactRole> ocrmap1=new List<OpportunityContactRole>();
         Map<Id,OpportunityContactRole> ocrmap2=new Map<Id,OpportunityContactRole>();
         for(OpportunityContactRole oppcr:[select Id,OpportunityId,ContactId,IsPrimary,Role From OpportunityContactRole where OpportunityId In:oppmap.keyset()]){
