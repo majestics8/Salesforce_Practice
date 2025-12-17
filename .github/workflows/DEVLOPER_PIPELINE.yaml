@@ -135,7 +135,8 @@ jobs:
           echo "ALIAS=$ALIAS" >> $GITHUB_OUTPUT
           rm authfile.txt
       
-      # Extracting test classes
+      # Extracting test classes    # REGEX="^${CLASS}([A-Za-z0-9_]*)_?(test|tests|testclass)$"   # if [[ "$CLASS" =~ (^|_)(test|tests|testclass)$ ]]; then also need to add ( shopt -s nocasematch ) at the top
+
       - name: Extract Test classes
         id: test
         if: steps.delta.outputs.NO_CHANGES == 'false'

@@ -1,7 +1,7 @@
 @isTest
 public class ApexPractice5DEC_Test {
 
-    // Utility to create user
+    //Utility to create user
     private static User createTestUser(Profile p) {
         return new User(
             FirstName = 'Test',
