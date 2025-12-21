@@ -283,6 +283,12 @@ jobs:
             echo "ERROR: Unsupported branch $RAW_BRANCH"
             exit 1
           fi
+      
+      # system specific config folder 
+      - name: Derive environment folder
+        id: env_folder
+        run: |
+          echo "ENV_FOLDER=$(echo '${{ steps.env.outputs.ENV_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       # Searching for last deployment tag
       - name: Find last deployment tag
@@ -340,6 +346,23 @@ jobs:
             --manifest delta/package/package.xml \
             --target-org "${{ steps.env.outputs.ENV_NAME }}"\
             --test-level RunLocalTests 
+      
+      # Environment specific configuartion folder content deployment
+      - name: Deployment (Environment specific Configuration Deployment)
+        if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
+        run: |
+          ENV_FOLDER="${{ steps.env_folder.outputs.ENV_FOLDER }}"
+          ENV_PATH="env/$ENV_FOLDER"
+
+          if [ -d "$ENV_PATH" ]; then
+            echo "Deploying environment overrides from $ENV_PATH"
+            sf project deploy start \
+              --source-dir "$ENV_PATH" \
+              --target-org "${{ steps.env.outputs.ENV_NAME }}" \
+              --test-level NoTestRun
+          else
+            echo "No environment override folder found for $ENV_FOLDER"
+          fi
 
       # Tag creation
       - name: Tag deployment
