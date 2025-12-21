@@ -7,4 +7,11 @@
         <shortDescription>Dummy url</shortDescription>
         <value>https://__EXTRA_URL__/lokesh</value>
     </labels>
+    <labels>
+        <fullName>Salesforce_Org_Url</fullName>
+        <language>en_US</language>
+        <protected>true</protected>
+        <shortDescription>Salesforce Org Url</shortDescription>
+        <value>wise-hawk-p4kah1-dev-ed.trailblaze.my.salesforce.com</value>
+    </labels>
 </CustomLabels>

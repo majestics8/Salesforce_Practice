@@ -7,4 +7,11 @@
         <shortDescription>Dummy url</shortDescription>
         <value>https://uat.salesforce.com/lokesh</value>
     </labels>
+    <labels>
+        <fullName>Salesforce_Org_Url</fullName>
+        <language>en_US</language>
+        <protected>true</protected>
+        <shortDescription>Salesforce Org Url</shortDescription>
+        <value>lokeshshriramwar@curious-goat-b3g4c8.com</value>
+    </labels>
 </CustomLabels>
