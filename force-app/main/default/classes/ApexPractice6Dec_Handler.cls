@@ -9,6 +9,7 @@ public class ApexPractice6Dec_Handler {
                 }
             }
         }
+
         
         if(oldclist!=null){
             for(Case_Task__c c:oldclist){

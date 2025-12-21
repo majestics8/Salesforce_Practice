@@ -19,6 +19,11 @@
                 <default>false</default>
                 <label>UnPaid</label>
             </value>
+            <value>
+                <fullName>Debt</fullName>
+                <default>false</default>
+                <label>Debt</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

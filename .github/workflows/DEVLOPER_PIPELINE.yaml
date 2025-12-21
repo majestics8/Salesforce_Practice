@@ -33,8 +33,9 @@ jobs:
 
       - name: Install PMD
         run: |
+          set -e
           echo "Downloading PMD..."
-          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
+          curl -fL --retry 3 -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.19.0/pmd-dist-7.19.0-bin.zip
           unzip pmd.zip -d pmd
           echo "PMD extracted:"
           ls -R pmd
@@ -98,12 +99,14 @@ jobs:
 
       # PMD SCAN
       - name: RUN PMD SCAN
+        if: steps.delta.outputs.NO_CHANGES == 'false'
         run: |
-          chmod +x ./pmd/pmd-bin-7.7.0/bin/pmd
-          ./pmd/pmd-bin-7.7.0/bin/pmd check \
+          PMD_BIN="./pmd/pmd-bin-7.19.0/bin/pmd"
+          chmod +x $PMD_BIN
+          $PMD_BIN check \
             -d delta \
             -R rulesets/apex/quickstart.xml \
-            -f text || true
+            -f text || echo "PMD scan completed with some issues, but workflow continues"
 
       # Authentication
       - name: Authenticate to org
@@ -246,14 +249,6 @@ jobs:
         
       - name: Install SFDX 
         run: npm install @salesforce/cli --global
-
-      - name: Install PMD
-        run: |
-          echo "Downloading PMD..."
-          curl -L -o pmd.zip https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.7.0/pmd-dist-7.7.0-bin.zip
-          unzip pmd.zip -d pmd
-          echo "PMD extracted:"
-          ls -R pmd
       
       - name: Install xmllint
         run: sudo apt-get update && sudo apt-get install -y libxml2-utils
