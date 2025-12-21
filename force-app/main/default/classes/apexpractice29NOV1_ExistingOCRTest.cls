@@ -1,5 +1,5 @@
 @IsTest
-private class apexpractice29NOV1_ExistingOCR_Test {
+private class apexpractice29NOV1_ExistingOCRTest {
     @IsTest
     static void test_existingOcrForPrimary_isUpdated() {
         // Create a contact

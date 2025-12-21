@@ -7,9 +7,8 @@ private class ApexPractice6Dec_Handler_Test {
         insert c1;
 
         Case_Task__c t1 = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='Medium');
-        Case_Task__c t3 = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='High');
         Case_Task__c t2 = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='Medium');
-    
+        Case_Task__c t3 = new Case_Task__c(Case__c = c1.Id, Status__c = 'In Progress', Priority__c='High');
         insert new List<Case_Task__c>{t1,t2,t3};
 
         // Reload cases and assert expected statuses
@@ -40,6 +39,6 @@ private class ApexPractice6Dec_Handler_Test {
         update existingt2;
         
        // Case c3 = [SELECT Id, Status FROM Case WHERE Id = :c2.Id];
-      // System.assertEquals('Resolved', c3.Status);
+      //  System.assertEquals('Resolved', c3.Status);
     }
 }
