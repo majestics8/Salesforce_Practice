@@ -65,7 +65,7 @@ jobs:
             TARGET_BRANCH="${GITHUB_REF#refs/heads/}"
           fi
 
-          if [ -z "$SRC_COMMIT" ] || [ -z "$SRC_COMMIT" ]; then
+          if [ -z "$SRC_COMMIT" ] || [ -z "$TGT_COMMIT" ]; then
             echo "The commits not found falling back to merge-base method"
 
             echo "Fetching the target Branch : $TARGET_BRANCH"
@@ -135,7 +135,8 @@ jobs:
           echo "ALIAS=$ALIAS" >> $GITHUB_OUTPUT
           rm authfile.txt
       
-      # Extracting test classes
+      # Extracting test classes    # REGEX="^${CLASS}([A-Za-z0-9_]*)_?(test|tests|testclass)$"   # if [[ "$CLASS" =~ (^|_)(test|tests|testclass)$ ]]; then also need to add ( shopt -s nocasematch ) at the top
+
       - name: Extract Test classes
         id: test
         if: steps.delta.outputs.NO_CHANGES == 'false'
@@ -145,7 +146,7 @@ jobs:
 
           APEX_CLASSES=$(xmllint --xpath \
             "//*[local-name()='types'][*[local-name()='name']='ApexClass']/*[local-name()='members']/text()" \
-            delta/package/package.xml)
+            delta/package/package.xml 2>/dev/null || true)
 
           echo "Changed Apex Classes:"
           echo "$APEX_CLASSES"
@@ -182,7 +183,7 @@ jobs:
             else
               DEFAULT="${CLASS}Test"
             fi
-
+            
             echo "⚠ No test found — using fallback: $DEFAULT"
             TEST_LIST="$TEST_LIST $DEFAULT"
           done
@@ -282,6 +283,12 @@ jobs:
             echo "ERROR: Unsupported branch $RAW_BRANCH"
             exit 1
           fi
+      
+      # system specific config folder 
+      - name: Derive environment folder
+        id: env_folder
+        run: |
+          echo "ENV_FOLDER=$(echo '${{ steps.env.outputs.ENV_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       # Searching for last deployment tag
       - name: Find last deployment tag
@@ -339,6 +346,23 @@ jobs:
             --manifest delta/package/package.xml \
             --target-org "${{ steps.env.outputs.ENV_NAME }}"\
             --test-level RunLocalTests 
+      
+      # Environment specific configuartion folder content deployment
+      - name: Deployment (Environment specific Configuration Deployment)
+        if: steps.delta_deploy.outputs.NO_CHANGES == 'false'
+        run: |
+          ENV_FOLDER="${{ steps.env_folder.outputs.ENV_FOLDER }}"
+          ENV_PATH="env/$ENV_FOLDER"
+
+          if [ -d "$ENV_PATH" ]; then
+            echo "Deploying environment overrides from $ENV_PATH"
+            sf project deploy start \
+              --source-dir "$ENV_PATH" \
+              --target-org "${{ steps.env.outputs.ENV_NAME }}" \
+              --test-level NoTestRun
+          else
+            echo "No environment override folder found for $ENV_FOLDER"
+          fi
 
       # Tag creation
       - name: Tag deployment
